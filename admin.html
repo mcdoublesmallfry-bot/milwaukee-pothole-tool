@@ -14,3 +14,523 @@
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { font-family:'IBM Plex Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+  /* ── LOGIN ── */
+  #login-screen {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:100vh; padding:40px;
+  }
+  .lock-icon { font-size:40px; margin-bottom:20px; }
+  .login-title { font-size:20px; font-weight:700; margin-bottom:6px; }
+  .login-sub { color:var(--muted); font-size:13px; margin-bottom:32px; }
+  .login-box {
+    background:var(--bg2); border:1px solid var(--border); border-radius:10px;
+    padding:32px; width:100%; max-width:380px; display:flex; flex-direction:column; gap:12px;
+  }
+  .login-box label { font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; font-family:'IBM Plex Mono',monospace; }
+  .login-box input[type=password] {
+    padding:10px 14px; background:var(--bg); border:1px solid var(--border);
+    border-radius:6px; color:var(--text); font-size:14px; font-family:'IBM Plex Mono',monospace;
+  }
+  .login-box input[type=password]:focus { outline:none; border-color:var(--gold); }
+  .login-error { color:var(--red); font-size:11px; font-family:'IBM Plex Mono',monospace; display:none; }
+  .btn-primary {
+    padding:11px; background:var(--gold); color:#000; border:none; border-radius:6px;
+    font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; transition:opacity 0.15s;
+  }
+  .btn-primary:hover { opacity:0.85; }
+  .btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
+
+  /* ── ADMIN PANEL ── */
+  #admin-panel { display:none; max-width:680px; margin:0 auto; padding:40px 24px; }
+  .panel-header { margin-bottom:32px; }
+  .panel-city { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:3px; color:var(--gold); text-transform:uppercase; margin-bottom:6px; }
+  .panel-title { font-size:22px; font-weight:700; }
+  .panel-sub { color:var(--muted); font-size:13px; margin-top:4px; }
+
+  .current-status {
+    background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+    padding:16px 20px; margin-bottom:28px; font-family:'IBM Plex Mono',monospace; font-size:11px;
+  }
+  .status-label { color:var(--faint); font-size:9px; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; }
+  .status-value { color:var(--text); }
+  .status-value.none { color:var(--faint); font-style:italic; }
+
+  .upload-section { margin-bottom:28px; }
+  .section-label { font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; font-family:'IBM Plex Mono',monospace; margin-bottom:12px; }
+
+  .drop-zone {
+    border:2px dashed var(--border); border-radius:10px; padding:40px;
+    text-align:center; cursor:pointer; transition:all 0.2s; background:var(--bg2);
+    position:relative;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color:var(--gold); background:#1a1e26; }
+  .drop-zone input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .drop-label { font-size:15px; font-weight:600; margin-bottom:4px; }
+  .drop-hint { font-size:11px; color:var(--faint); }
+
+  /* Progress */
+  .progress-wrap { margin-top:20px; display:none; }
+  .progress-label { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); margin-bottom:8px; }
+  .progress-bar-bg { height:4px; background:var(--bg3); border-radius:2px; overflow:hidden; margin-bottom:6px; }
+  .progress-bar { height:100%; background:var(--gold); border-radius:2px; transition:width 0.3s; width:0; }
+  .progress-step { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--faint); }
+
+  /* Result */
+  .result-box {
+    margin-top:20px; padding:16px 20px; border-radius:8px; font-family:'IBM Plex Mono',monospace; font-size:12px;
+    display:none;
+  }
+  .result-box.success { background:#0d2318; border:1px solid #1a4a2e; color:var(--green); }
+  .result-box.error   { background:#2d0d0d; border:1px solid #4a1a1a; color:var(--red); }
+
+  .staff-link-box {
+    background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+    padding:20px; margin-top:28px; font-family:'IBM Plex Mono',monospace;
+  }
+  .staff-link-label { font-size:9px; letter-spacing:1px; color:var(--faint); text-transform:uppercase; margin-bottom:8px; }
+  .staff-link-url { font-size:13px; color:var(--gold); word-break:break-all; }
+  .copy-btn {
+    margin-top:10px; padding:6px 14px; background:var(--bg3); border:1px solid var(--border);
+    border-radius:4px; color:var(--muted); font-size:11px; cursor:pointer; font-family:inherit;
+    transition:all 0.15s;
+  }
+  .copy-btn:hover { border-color:var(--muted); color:var(--text); }
+
+  .logout-btn {
+    margin-top:40px; padding:8px 18px; background:transparent; border:1px solid var(--border);
+    border-radius:4px; color:var(--faint); font-size:11px; cursor:pointer; font-family:inherit;
+  }
+  .logout-btn:hover { color:var(--red); border-color:var(--red); }
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ─────────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="lock-icon">🔐</div>
+  <div class="login-title">Admin Access</div>
+  <div class="login-sub">Milwaukee Street Maintenance — Pothole Priority Tool</div>
+  <div class="login-box">
+    <label>Admin Password</label>
+    <input type="password" id="pw-input" placeholder="Enter password" onkeydown="if(event.key==='Enter')login()">
+    <div class="login-error" id="login-error">Incorrect password. Please try again.</div>
+    <button class="btn-primary" onclick="login()">Sign In</button>
+  </div>
+</div>
+
+<!-- ── ADMIN PANEL ────────────────────────────────────────────────────── -->
+<div id="admin-panel">
+  <div class="panel-header">
+    <div class="panel-city">City of Milwaukee — DPW Street Maintenance</div>
+    <div class="panel-title">Pothole Priority Tool — Admin</div>
+    <div class="panel-sub">Upload a new backlog export to refresh the staff dashboard.</div>
+  </div>
+
+  <div class="current-status">
+    <div class="status-label">Currently Live on Staff Dashboard</div>
+    <div class="status-value" id="current-status-val">Checking…</div>
+  </div>
+
+  <div class="upload-section">
+    <div class="section-label">Upload New Export</div>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept=".xlsx,.xls,.csv">
+      <div style="font-size:36px;margin-bottom:12px">📋</div>
+      <div class="drop-label">Drop your export here</div>
+      <div class="drop-hint">.xlsx, .xls, or .csv — standard pothole backlog format</div>
+    </div>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-label" id="progress-label">Processing…</div>
+      <div class="progress-bar-bg"><div class="progress-bar" id="progress-bar"></div></div>
+      <div class="progress-step" id="progress-step"></div>
+    </div>
+
+    <div class="result-box" id="result-box"></div>
+  </div>
+
+  <div class="staff-link-box">
+    <div class="staff-link-label">Staff Dashboard URL</div>
+    <div class="staff-link-url" id="staff-url"></div>
+    <button class="copy-btn" onclick="copyUrl()">Copy link</button>
+  </div>
+
+  <button class="logout-btn" onclick="logout()">Sign out</button>
+</div>
+
+<script>
+// ── Analysis pipeline (same as milwaukee_pothole_tool.html) ──────────────
+
+const MAJOR_STREETS = {
+  'FOND DU LAC AVE':5,'W FOND DU LAC AVE':5,'N FOND DU LAC AVE':5,
+  'NATIONAL AVE':5,'W NATIONAL AVE':5,'E NATIONAL AVE':5,
+  'SILVER SPRING DR':5,'W SILVER SPRING DR':5,'E SILVER SPRING DR':5,
+  'CAPITOL DR':5,'W CAPITOL DR':5,'E CAPITOL DR':5,
+  'BLUEMOUND RD':5,'W BLUEMOUND RD':5,'W BLUE MOUND RD':5,
+  'WISCONSIN AVE':5,'W WISCONSIN AVE':5,'E WISCONSIN AVE':5,
+  'BROWN DEER RD':5,'W BROWN DEER RD':5,
+  'MITCHELL ST':5,'W MITCHELL ST':5,'E MITCHELL ST':5,'W HISTORIC MITCHELL ST':5,
+  'S 27TH ST':5,'N 27TH ST':5,
+  'LAYTON BLVD':4,'W LAYTON BLVD':4,'S LAYTON BLVD':4,'W LAYTON AVE':4,
+  'NORTH AVE':4,'W NORTH AVE':4,'E NORTH AVE':4,
+  'W HOLT AVE':4,'E HOLT AVE':4,'W OKLAHOMA AVE':4,'E OKLAHOMA AVE':4,
+  'W LINCOLN AVE':4,'E LINCOLN AVE':4,'S LINCOLN AVE':4,
+  'W GREENFIELD AVE':4,'E GREENFIELD AVE':4,'W CLEVELAND AVE':4,'E CLEVELAND AVE':4,
+  'W HAMPTON AVE':4,'E HAMPTON AVE':4,'W LISBON AVE':4,'E LISBON AVE':4,
+  'N TEUTONIA AVE':4,'S TEUTONIA AVE':4,'N SHERMAN BLVD':4,'S SHERMAN BLVD':4,
+  'W BURLEIGH ST':4,'E BURLEIGH ST':4,'W VILLARD AVE':4,'E VILLARD AVE':4,
+  'N MARTIN LUTHER KING DR':4,'S MARTIN LUTHER KING DR':4,
+  'N MARTIN L KING JR DR':4,'S MARTIN L KING JR DR':4,
+  'S CESAR CHAVEZ DR':4,'N CESAR CHAVEZ DR':4,
+  'W FOREST HOME AVE':4,'S FOREST HOME AVE':4,'W COLLEGE AVE':4,'E COLLEGE AVE':4,
+  'S KINNICKINNIC AVE':4,'N KINNICKINNIC AVE':4,
+  'N 60TH ST':4,'S 60TH ST':4,'N 76TH ST':4,'S 76TH ST':4,
+  'W FLORIST AVE':3,'E FLORIST AVE':3,'N 17TH ST':3,'S 17TH ST':3,
+  'N 5TH ST':3,'S 5TH ST':3,'S 3RD ST':3,'N 3RD ST':3,
+  'W OHIO AVE':3,'E OHIO AVE':3,'N WATER ST':3,'S WATER ST':3,
+  'W BRADY ST':3,'E BRADY ST':3,'N HOLTON ST':3,
+  'W LOCUST ST':3,'E LOCUST ST':3,'W KEEFE AVE':3,'E KEEFE AVE':3,
+  'W VLIET ST':3,'E VLIET ST':3,'W WELLS ST':3,'E WELLS ST':3,
+  'W STATE ST':3,'E STATE ST':3,'W RYAN RD':3,'E RYAN RD':3,
+  'W EDGERTON AVE':3,'W COLD SPRING RD':3,'W GRANGE AVE':3,'S GRANGE AVE':3,
+  'N 91ST ST':3,'S 91ST ST':3,'N 35TH ST':3,'S 35TH ST':3,
+  'W WRIGHT ST':3,'E WRIGHT ST':3,
+};
+
+const SEVERITY_KEYWORDS = [
+  ['injury',5],['accident',4],['dangerous',4],['hazard',4],['heinous',4],
+  ['emergency',3],['school zone',4],['entire street',3],['entire block',3],
+  ['crumbling',3],['crumble',3],['sunken',3],['sunk',3],['massive',3],
+  ['severe',3],['failed',2],['large',2],['deep',2],['extreme',3],
+  ['throughout',2],['huge',2],['damage',2],['school',2],
+  ['many',1],['multiple',1],['several',1],
+];
+
+const URGENT_KEYWORDS = ['dangerous','accident','injury','school zone','school'];
+
+
+
+function getStreetWeight(street) {
+  const s = street.toUpperCase().trim();
+  if (MAJOR_STREETS[s]) return MAJOR_STREETS[s];
+  for (const [key, val] of Object.entries(MAJOR_STREETS)) {
+    if (s.includes(key) || key.includes(s)) return val;
+  }
+  const m = s.match(/(\d+)(ST|ND|RD|TH)\s+ST$/);
+  if (m && parseInt(m[1]) >= 20) return 2;
+  return 1;
+}
+
+function getSeverity(desc) {
+  let score = 0;
+  const d = desc.toLowerCase();
+  for (const [kw, val] of SEVERITY_KEYWORDS) if (d.includes(kw)) score += val;
+  return score;
+}
+
+function getDistrictFromName(name) {
+  const n = (name || '').toLowerCase().trim();
+  if (n.includes('brock') || n.includes('jason')) return 1;
+  if (n.includes('frazier') || n.includes('paschal')) return 2;
+  if (n.includes('charles') || n.includes('james')) return 3;
+  // Crew assignments — map by crew number to district
+  // Crews 1-3 → D1, 4-6 → D2, 7-9 → D3 (adjust if different)
+  const crewMatch = n.match(/crew(\d+)/);
+  if (crewMatch) {
+    const num = parseInt(crewMatch[1]);
+    if (num <= 3) return 1;
+    if (num <= 6) return 2;
+    return 3;
+  }
+  return 1; // unknown — default to D1
+}
+
+
+function parseAddress(addr) {
+  if (!addr) return null;
+  let s = String(addr).trim().replace(/,\s*MILWAUKEE.*$/i, '').trim();
+  const m = s.match(/^(\d+)\s*[A-Z]?\s+(.+)$/i);
+  if (!m) return null;
+  const num = parseInt(m[1]);
+  const street = m[2].trim()
+    .replace(/\bAV\b/gi,'AVE').replace(/\bBL\b/gi,'BLVD').toUpperCase();
+  const block = Math.floor(num / 100) * 100;
+  const pfx = street.match(/^([NS])\s+/);
+  return { num, block, street, prefix: pfx ? pfx[1] : null };
+}
+
+function clusterBlocks(items, gap = 200) {
+  if (!items.length) return [];
+  const sorted = [...items].sort((a,b) => a.num - b.num);
+  const clusters = [];
+  let cur = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].num - cur[cur.length-1].num <= gap) cur.push(sorted[i]);
+    else { clusters.push(cur); cur = [sorted[i]]; }
+  }
+  clusters.push(cur);
+  return clusters;
+}
+
+function detectColumns(headers) {
+  const h = headers.map(x => String(x||'').toLowerCase().trim());
+  const find = (...terms) => { for (const t of terms) { const i = h.findIndex(x=>x.includes(t)); if (i>=0) return i; } return -1; };
+  return {
+    id:       find('id','request id','sr#','ticket'),
+    address:  find('address','location','street address'),
+    date:     find('date created','created','submitted','date','opened'),
+    desc:     find('description','comments','notes','comment','detail'),
+    assigned: find('assigned to','assigned','assignee','crew'),
+    status:   find('current status','status'),
+  };
+}
+
+function analyzeRows(rows, cols, today) {
+  const records = [];
+  for (const row of rows) {
+    const addr = row[cols.address];
+    if (!addr) continue;
+    const parsed = parseAddress(addr);
+    if (!parsed) continue;
+    let daysSince = 999;
+    if (cols.date >= 0 && row[cols.date]) {
+      const d = new Date(row[cols.date]);
+      if (!isNaN(d)) daysSince = Math.max(0, Math.floor((today - d) / 86400000));
+    }
+    const assignedTo = cols.assigned >= 0 ? String(row[cols.assigned]||'').trim() : '';
+    const srId = cols.id >= 0 ? String(row[cols.id]||'').replace(/\.0$/,'') : '';
+    const status = cols.status >= 0 ? String(row[cols.status]||'') : '';
+    records.push({
+      desc: cols.desc >= 0 ? String(row[cols.desc]||'') : '',
+      parsed, daysSince, assignedTo,
+      id: srId,
+      address: String(row[cols.address]||''),
+      dateCreated: cols.date >= 0 && row[cols.date] ? String(row[cols.date]).substring(0,10) : '',
+      status: status,
+    });
+  }
+
+  const byStreet = {};
+  for (const r of records) {
+    const k = r.parsed.street;
+    if (!byStreet[k]) byStreet[k] = [];
+    byStreet[k].push(r);
+  }
+
+  const segments = [];
+  for (const [street, recs] of Object.entries(byStreet)) {
+    const clusters = clusterBlocks(recs.map(r => ({...r.parsed, ...r})));
+    for (const cluster of clusters) {
+      const nums = cluster.map(c=>c.num);
+      const lo = Math.floor(Math.min(...nums)/100)*100;
+      const hi = Math.floor(Math.max(...nums)/100)*100;
+      const sw = getStreetWeight(street);
+      const allDesc = cluster.map(c=>c.desc).join(' ');
+      const sev = getSeverity(allDesc);
+      const urgent = cluster.some(c => URGENT_KEYWORDS.some(kw => c.desc.toLowerCase().includes(kw)));
+      const daysList = cluster.map(c=>c.daysSince).sort((a,b)=>a-b);
+      const prefix = cluster[0].prefix;
+      // District determined solely from assigned supervisor name in column F
+      const assignedNames = cluster.map(c => c.assignedTo).filter(Boolean);
+      const dist = assignedNames.length > 0 ? getDistrictFromName(assignedNames[0]) : 1;
+      const extent = lo===hi ? `${lo}xx` : `${lo}xx–${hi}xx`;
+      const seen = new Set();
+      const descSamples = [];
+      for (const c of cluster) {
+        const d = c.desc.trim();
+        if (d.length > 15 && !seen.has(d.substring(0,40))) {
+          seen.add(d.substring(0,40));
+          descSamples.push(d.length > 120 ? d.substring(0,120)+'…' : d);
+          if (descSamples.length >= 3) break;
+        }
+      }
+      segments.push({ street, extent, lo, hi, sw, sev, urgent, dist, daysList, mostRecent: daysList[0], totalRecs: cluster.length, descSamples });
+    }
+  }
+  return { segments, records, totalRecs: records.length };
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+// ── CONFIG — update these if you regenerate your GitHub token ──
+const GITHUB_TOKEN = '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';
+const GIST_ID      = '47bd725efa57d4bc3753b49ee698a3f3';
+
+let adminPassword = '';
+
+function login() {
+  const pw = document.getElementById('pw-input').value.trim();
+  if (!pw) return;
+  adminPassword = pw;
+  // Verify by attempting a get-data fetch (indirect check) — or just proceed and fail on save
+  document.getElementById('login-error').style.display = 'none';
+  showAdmin();
+}
+
+function logout() {
+  adminPassword = '';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('pw-input').value = '';
+}
+
+async function showAdmin() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('admin-panel').style.display = 'block';
+
+  // Set staff URL
+  const staffUrl = window.location.origin + '/';
+  document.getElementById('staff-url').textContent = staffUrl;
+
+  // Load current status from Gist
+  try {
+    const gistRes = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
+    });
+    if (gistRes.ok) {
+      const gist = await gistRes.json();
+      const file = gist.files['pothole-data.json'];
+      if (file && file.content && !file.content.includes('"init"')) {
+        const d = JSON.parse(file.truncated ? await (await fetch(file.raw_url)).text() : file.content);
+        const updated = new Date(d.updatedAt);
+        const segs = (d.segments||[]).length;
+        const recs = d.meta?.totalRecs || 0;
+        document.getElementById('current-status-val').innerHTML =
+          `<strong>${d.meta?.fileName||'Unknown'}</strong><br>
+           ${segs} segments from ${recs.toLocaleString()} SRs<br>
+           Uploaded: ${updated.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})}`;
+      } else {
+        document.getElementById('current-status-val').innerHTML = '<span class="status-value none">No data uploaded yet — dashboard is empty.</span>';
+      }
+    } else {
+      document.getElementById('current-status-val').innerHTML = '<span class="status-value none">Could not fetch status.</span>';
+    }
+  } catch(e) {
+    console.error('showAdmin error:', e);
+    document.getElementById('current-status-val').innerHTML = '<span class="status-value none">Could not fetch status — upload a new file to refresh.</span>';
+  }
+}
+
+// ── File handling ─────────────────────────────────────────────────────────
+function setProgress(pct, step, label) {
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-step').textContent = step;
+  if (label) document.getElementById('progress-label').textContent = label;
+}
+
+function showResult(ok, msg) {
+  const el = document.getElementById('result-box');
+  el.className = 'result-box ' + (ok ? 'success' : 'error');
+  el.style.display = 'block';
+  el.textContent = msg;
+}
+
+async function handleFile(file) {
+  if (!file) return;
+  document.getElementById('result-box').style.display = 'none';
+  setProgress(5, 'Reading file…', `Processing ${file.name}…`);
+
+  await new Promise(r => setTimeout(r, 50));
+
+  try {
+    const buf = await file.arrayBuffer();
+    setProgress(15, 'Parsing spreadsheet…');
+    await new Promise(r => setTimeout(r, 30));
+
+    let rows, headers;
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      const text = new TextDecoder().decode(buf);
+      const lines = text.split('\n').map(l => l.split(',').map(c => c.replace(/^"|"$/g,'').trim()));
+      headers = lines[0]; rows = lines.slice(1).filter(l => l.some(c=>c));
+    } else {
+      const wb = XLSX.read(buf, { type:'array', cellDates:true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, dateNF:'yyyy-mm-dd hh:mm:ss' });
+      headers = raw[0]||[]; rows = raw.slice(1);
+    }
+
+    setProgress(25, 'Detecting columns…');
+    const cols = detectColumns(headers);
+    if (cols.address < 0) { showResult(false, '✗ Could not find an address column. Check your file has "Address" or "Location".'); return; }
+
+    setProgress(35, 'Parsing addresses…');
+    await new Promise(r => setTimeout(r, 30));
+
+    setProgress(55, 'Clustering and scoring…');
+    await new Promise(r => setTimeout(r, 30));
+
+    const today = new Date();
+    const { segments, records, totalRecs } = analyzeRows(rows, cols, today);
+
+    setProgress(80, `Built ${segments.length} segments — uploading to dashboard…`);
+    await new Promise(r => setTimeout(r, 50));
+
+    // Build raw records for research tab
+    const rawForSave = records.map(r => ({
+      id: r.id, address: r.address, dateCreated: r.dateCreated,
+      desc: r.desc, status: r.status,
+    }));
+
+    const payload = {
+      segments,
+      records: rawForSave,
+      meta: { fileName: file.name, totalRecs, analyzedAt: today.toISOString() },
+      updatedAt: today.toISOString(),
+    };
+
+    // Write directly to GitHub Gist
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GITHUB_TOKEN}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      body: JSON.stringify({
+        files: { 'pothole-data.json': { content: JSON.stringify(payload) } }
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showResult(false, `✗ Upload failed: ${err.message || res.statusText}`);
+      return;
+    }
+
+    setProgress(100, 'Done');
+    showResult(true,
+      `✓ Dashboard updated successfully!\n\n` +
+      `File: ${file.name}\n` +
+      `Records: ${totalRecs.toLocaleString()} SRs → ${segments.length} priority segments\n` +
+      `Staff dashboard is now live with this data.`
+    );
+
+    // Refresh status
+    await showAdmin();
+
+  } catch(e) {
+    console.error(e);
+    showResult(false, `✗ Error: ${e.message}`);
+  }
+}
+
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function copyUrl() {
+  navigator.clipboard.writeText(document.getElementById('staff-url').textContent)
+    .then(() => { const b = document.querySelector('.copy-btn'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy link',2000); });
+}
+</script>
+</body>
+</html>
