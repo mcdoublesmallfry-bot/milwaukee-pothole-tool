@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Milwaukee Street Maintenance — Pothole Priority</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+  :root {
+    --bg:#0d1117; --bg2:#161b22; --bg3:#21262d; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e; --faint:#6e7681;
+    --gold:#f59e0b; --red:#ef4444; --green:#34d399; --blue:#60a5fa; --orange:#fb923c;
+    --dimtext:#2e2e2e;
+    --d1:#60a5fa; --d2:#34d399; --d3:#fb923c;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'IBM Plex Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+  /* Loading */
+  #loading {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:100vh; gap:16px;
+  }
+  .loading-city { font-family:monospace; font-size:10px; letter-spacing:3px; color:var(--gold); text-transform:uppercase; }
+  .loading-spinner {
+    width:32px; height:32px; border:3px solid var(--bg3); border-top-color:var(--gold);
+    border-radius:50%; animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .loading-msg { font-family:monospace; font-size:11px; color:var(--faint); }
+
+  /* Error */
+  #error-screen {
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    min-height:100vh; padding:40px; text-align:center;
+  }
+  .error-title { font-size:18px; font-weight:700; color:var(--text); margin-bottom:8px; }
+  .error-sub { color:var(--muted); font-size:13px; line-height:1.6; }
+
+  /* Dashboard */
+  #dashboard { display:none; }
+
+  /* Top bar */
+  .topbar {
+    background:var(--bg2); border-bottom:2px solid var(--gold);
+    padding:14px 24px 10px; position:sticky; top:0; z-index:100;
+  }
+  .topbar-city { font-family:monospace; font-size:9px; letter-spacing:3px; color:var(--gold); text-transform:uppercase; margin-bottom:2px; }
+  .topbar-title { font-size:18px; font-weight:700; color:var(--text); }
+  .topbar-meta { font-size:11px; color:var(--muted); margin-top:2px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; font-family:monospace; }
+  .topbar-updated { font-size:10px; color:var(--faint); }
+  .export-btn {
+    margin-left:auto; padding:5px 14px; background:var(--gold); color:#000;
+    border:none; border-radius:4px; font-size:10px; font-weight:700;
+    cursor:pointer; font-family:monospace; letter-spacing:0.5px;
+    transition:opacity 0.15s; white-space:nowrap;
+  }
+  .export-btn:hover { opacity:0.85; }
+
+  @media print {
+    * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+    body { background:#fff !important; color:#000 !important; }
+    #loading, #error-screen, #dashboard { display:none !important; }
+    #print-view { display:block !important; }
+  }
+  #print-view { display:none; font-family:Arial,sans-serif; color:#000; background:#fff; }
+  .print-page { width:100%; page-break-after:always; padding:48px 56px; box-sizing:border-box; min-height:100vh; }
+  .print-page:last-child { page-break-after:auto; }
+  .print-header { margin-bottom:28px; border-bottom:3px solid #000; padding-bottom:14px; }
+  .print-agency { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:#666; margin-bottom:4px; }
+  .print-title { font-size:20px; font-weight:700; margin-bottom:2px; }
+  .print-district { font-size:13px; font-weight:600; margin-bottom:2px; }
+  .print-meta { font-size:10px; color:#666; display:flex; justify-content:space-between; margin-top:6px; }
+  .print-table { width:100%; border-collapse:collapse; margin-top:8px; }
+  .print-table th { font-size:9px; text-transform:uppercase; letter-spacing:1px; font-weight:700; border-bottom:2px solid #000; padding:8px 10px; text-align:left; background:#f0f0f0; }
+  .print-table td { padding:11px 10px; border-bottom:1px solid #ddd; font-size:12px; vertical-align:middle; }
+  .print-table tr:nth-child(even) td { background:#fafafa; }
+  .print-rank { font-weight:700; font-size:18px; color:#000; width:36px; text-align:center; }
+  .print-street { font-weight:700; font-size:13px; }
+  .print-extents { font-size:11px; color:#444; font-style:italic; margin-top:1px; }
+  .print-urgent { display:inline-block; background:#000; color:#fff; font-size:7px; font-weight:700; letter-spacing:1px; padding:1px 5px; border-radius:2px; margin-top:3px; text-transform:uppercase; }
+  .print-assign { width:100%; border:none; border-bottom:1px solid #aaa; height:18px; background:transparent; }
+
+  /* District key */
+  .dist-key { display:flex; border-bottom:1px solid var(--border); background:var(--bg); }
+  .dist-key-item { flex:1; padding:7px 16px; border-right:1px solid var(--border); }
+  .dist-key-label { font-size:10px; font-weight:700; font-family:monospace; }
+  .dist-key-sub { font-size:9px; color:var(--faint); margin-top:1px; }
+
+  /* Filter bar */
+  .filterbar {
+    background:var(--bg2); padding:8px 24px; display:flex; gap:6px;
+    flex-wrap:wrap; align-items:center; border-bottom:1px solid var(--border);
+    position:sticky; top:72px; z-index:99;
+  }
+  .fbtn {
+    padding:4px 10px; font-size:10px; border-radius:4px; cursor:pointer;
+    border:1px solid var(--border); background:var(--bg3); color:var(--muted);
+    font-family:monospace; transition:all 0.1s; white-space:nowrap;
+  }
+  .fbtn.active { font-weight:700; }
+  .fbtn:hover { color:var(--text); }
+  .divider { width:1px; height:20px; background:var(--border); margin:0 4px; flex-shrink:0; }
+  .window-control {
+    display:flex; align-items:center; gap:5px; background:var(--bg3);
+    border:1px solid var(--border); border-radius:4px; padding:3px 8px;
+  }
+  .window-control span { font-size:10px; color:var(--faint); white-space:nowrap; font-family:monospace; }
+  .window-control input {
+    width:44px; background:var(--bg); border:1px solid var(--border); color:var(--gold);
+    padding:2px 5px; font-size:11px; border-radius:3px; font-family:monospace;
+    font-weight:700; text-align:center;
+  }
+  .search-input {
+    margin-left:auto; background:var(--bg); border:1px solid var(--border); color:var(--text);
+    padding:4px 10px; font-size:10px; border-radius:4px; font-family:monospace; width:170px;
+  }
+  .search-input:focus { outline:none; border-color:var(--muted); }
+
+  /* Legend */
+  .legend {
+    padding:5px 24px; background:var(--bg); font-size:9px; color:var(--faint);
+    border-bottom:1px solid var(--border); display:flex; gap:20px; flex-wrap:wrap;
+    font-family:monospace;
+  }
+
+  /* Column headers */
+  .col-header {
+    display:grid;
+    grid-template-columns:44px 54px 26px 1fr 130px 50px 32px 32px 58px 72px;
+    padding:5px 24px; font-size:9px; color:var(--faint); letter-spacing:1px;
+    text-transform:uppercase; border-bottom:1px solid var(--border);
+    background:var(--bg2); font-family:monospace;
+    position:sticky; top:118px; z-index:98;
+  }
+
+  /* Rows */
+  .row {
+    display:grid;
+    grid-template-columns:44px 54px 26px 1fr 130px 50px 32px 32px 58px 72px;
+    padding:6px 24px; align-items:center; border-bottom:1px solid var(--border);
+    cursor:pointer; font-family:monospace; font-size:11px; transition:background 0.1s;
+  }
+  .row:hover { filter:brightness(1.2); }
+  .row-detail {
+    padding:6px 24px 12px 116px; font-size:10px; color:var(--muted);
+    border-bottom:1px solid var(--border); background:var(--bg2); line-height:1.7;
+    font-family:monospace; display:none;
+  }
+  .row-detail.open { display:block; }
+  .dist-badge {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:17px; height:17px; border-radius:3px; font-size:9px; font-weight:700;
+    border-width:1px; border-style:solid;
+  }
+  .empty { padding:48px 24px; text-align:center; color:var(--faint); font-family:monospace; }
+  .footer {
+    padding:12px 24px; font-size:9px; color:var(--faint); border-top:1px solid var(--border);
+    background:var(--bg2); line-height:1.8; font-family:monospace;
+  }
+
+  @media (max-width:700px) {
+    /* Topbar */
+    .topbar { padding:10px 14px 8px; position:relative; }
+    .topbar-city { display:none; }
+    .topbar-title { font-size:15px; }
+    .topbar-meta { font-size:10px; gap:6px; }
+    .export-btn { font-size:9px; padding:4px 8px; }
+
+    /* District key — stack vertically */
+    .dist-key { flex-direction:column; }
+    .dist-key-item { border-right:none; border-bottom:1px solid var(--border); padding:5px 14px; }
+
+    /* Filter bar — scrollable, not sticky */
+    .filterbar { position:relative; top:auto; overflow-x:auto; flex-wrap:nowrap; padding:8px 14px; gap:5px; }
+    .filterbar::-webkit-scrollbar { height:3px; }
+    .filterbar::-webkit-scrollbar-thumb { background:var(--border); }
+    .window-control { flex-shrink:0; }
+    .search-input { min-width:120px; }
+
+    /* Legend hidden on mobile */
+    .legend { display:none; }
+
+    /* Column header — mobile layout: rank | street+extents | last SR */
+    .col-header { position:relative; top:auto;
+      grid-template-columns:32px 1fr 60px;
+    }
+    .col-header span:nth-child(2),   /* score */
+    .col-header span:nth-child(3),   /* D badge */
+    .col-header span:nth-child(5),   /* extents */
+    .col-header span:nth-child(6),   /* recs */
+    .col-header span:nth-child(7),   /* sw */
+    .col-header span:nth-child(8),   /* sev */
+    .col-header span:nth-child(9)    /* flags */
+    { display:none; }
+
+    /* Rows — mobile layout */
+    .row { grid-template-columns:32px 1fr 60px; padding:8px 14px; }
+    .row > *:nth-child(2),  /* score */
+    .row > *:nth-child(3),  /* D badge */
+    .row > *:nth-child(5),  /* extents */
+    .row > *:nth-child(6),  /* recs */
+    .row > *:nth-child(7),  /* sw */
+    .row > *:nth-child(8),  /* sev */
+    .row > *:nth-child(9)   /* flags */
+    { display:none; }
+
+    /* Street name — show district color via left border instead of badge */
+    .row > *:nth-child(4) { font-size:12px; }
+
+    /* Row detail — tighter indent */
+    .row-detail { padding:6px 14px 10px 14px; }
+
+    /* Footer */
+    .footer { font-size:8px; padding:10px 14px; }
+  }
+
+  /* ── TABS ── */
+  .tab-bar {
+    background:var(--bg2); border-bottom:1px solid var(--border);
+    display:flex; padding:0 24px; position:sticky; top:70px; z-index:100;
+  }
+  .tab-btn {
+    padding:10px 20px; font-size:11px; font-weight:600; cursor:pointer;
+    background:transparent; border:none; color:var(--muted);
+    font-family:monospace; letter-spacing:0.5px;
+    border-bottom:2px solid transparent; margin-bottom:-1px;
+    transition:all 0.15s;
+  }
+  .tab-btn.active { color:var(--gold); border-bottom-color:var(--gold); }
+  .tab-btn:hover { color:var(--text); }
+
+  /* ── RESEARCH PANEL ── */
+  #research-panel { display:none; max-width:900px; margin:0 auto; padding:32px 24px 60px; }
+
+  .search-bar {
+    display:flex; gap:10px; margin-bottom:28px; flex-wrap:wrap;
+  }
+  .search-bar input {
+    flex:1; min-width:220px; background:var(--bg2); border:1px solid var(--border);
+    color:var(--text); padding:10px 14px; font-size:13px; border-radius:6px;
+    font-family:inherit;
+  }
+  .search-bar input:focus { outline:none; border-color:var(--gold); }
+  .search-bar button {
+    padding:10px 22px; background:var(--gold); color:#000; border:none;
+    border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;
+    font-family:monospace; white-space:nowrap;
+  }
+  .search-bar button:hover { opacity:0.85; }
+
+  .res-empty {
+    text-align:center; padding:60px 24px;
+    font-family:monospace; font-size:12px; color:var(--faint);
+  }
+
+  /* Stats strip */
+  .res-stats {
+    display:flex; gap:0; margin-bottom:24px;
+    border:1px solid var(--border); border-radius:8px; overflow:hidden;
+  }
+  .res-stat {
+    flex:1; padding:16px 20px; background:var(--bg2); border-right:1px solid var(--border);
+    text-align:center;
+  }
+  .res-stat:last-child { border-right:none; }
+  .res-stat-val { font-size:26px; font-weight:700; color:var(--text); font-family:monospace; }
+  .res-stat-lbl { font-size:9px; color:var(--faint); text-transform:uppercase; letter-spacing:1px; margin-top:3px; }
+
+  /* Score card */
+  .res-score-card {
+    background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+    padding:18px 22px; margin-bottom:24px; display:flex; align-items:center; gap:20px;
+  }
+  .res-score-num { font-size:42px; font-weight:700; color:var(--gold); font-family:monospace; line-height:1; }
+  .res-score-info { flex:1; }
+  .res-score-label { font-size:13px; font-weight:600; color:var(--text); margin-bottom:3px; }
+  .res-score-sub { font-size:11px; color:var(--muted); font-family:monospace; }
+
+  /* Summary box */
+  .res-summary {
+    background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+    padding:18px 22px; margin-bottom:24px;
+  }
+  .res-section-title {
+    font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--faint);
+    font-family:monospace; margin-bottom:10px;
+  }
+  .res-summary-text { font-size:13px; color:var(--text); line-height:1.7; }
+
+  /* SR list */
+  .res-sr-list {
+    border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:24px;
+  }
+  .res-sr-item {
+    padding:14px 18px; border-bottom:1px solid var(--border); font-size:12px;
+    font-family:monospace;
+  }
+  .res-sr-item:last-child { border-bottom:none; }
+  .res-sr-item.oldest { background:#1a1500; border-left:3px solid var(--gold); }
+  .res-sr-header { display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; margin-bottom:5px; }
+  .res-sr-id { font-weight:700; color:var(--gold); }
+  .res-sr-date { color:var(--faint); font-size:10px; }
+  .res-sr-addr { color:var(--muted); font-size:11px; }
+  .res-sr-badge {
+    font-size:8px; font-weight:700; padding:2px 6px; border-radius:2px;
+    background:var(--gold); color:#000; letter-spacing:1px;
+  }
+  .res-sr-desc { color:var(--muted); font-size:11px; line-height:1.5; margin-top:3px; }
+
+  .res-export-btn {
+    width:100%; padding:13px; background:var(--gold); color:#000; border:none;
+    border-radius:6px; font-size:13px; font-weight:700; cursor:pointer;
+    font-family:monospace; letter-spacing:0.5px;
+    transition:opacity 0.15s;
+  }
+  .res-export-btn:hover { opacity:0.85; }
+
+  /* Research print styles */
+  @media print {
+    #research-print-view { display:block !important; }
+  }
+  #research-print-view { display:none; font-family:Arial,sans-serif; color:#000; background:#fff; }
+  .rpt-page { padding:48px 56px; box-sizing:border-box; }
+  .rpt-header { border-bottom:3px solid #000; padding-bottom:14px; margin-bottom:28px; }
+  .rpt-agency { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:#666; margin-bottom:4px; }
+  .rpt-title { font-size:20px; font-weight:700; margin-bottom:4px; }
+  .rpt-sub { font-size:12px; color:#444; margin-bottom:4px; }
+  .rpt-meta { font-size:10px; color:#666; margin-top:6px; }
+  .rpt-section { margin-bottom:28px; }
+  .rpt-section-title { font-size:9px; text-transform:uppercase; letter-spacing:2px; font-weight:700; border-bottom:1px solid #000; padding-bottom:4px; margin-bottom:14px; }
+  .rpt-primary { background:#f5f5f5; border-left:4px solid #000; padding:14px 18px; margin-bottom:18px; border-radius:2px; }
+  .rpt-primary-label { font-size:8px; text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:4px; color:#666; }
+  .rpt-primary-id { font-size:18px; font-weight:700; font-family:monospace; margin-bottom:3px; }
+  .rpt-primary-addr { font-size:12px; color:#333; margin-bottom:2px; }
+  .rpt-primary-date { font-size:11px; color:#666; }
+  .rpt-primary-action { margin-top:10px; font-size:11px; font-weight:700; }
+  .rpt-dup-table { width:100%; border-collapse:collapse; }
+  .rpt-dup-table th { font-size:9px; text-transform:uppercase; letter-spacing:1px; font-weight:700; border-bottom:2px solid #000; padding:6px 10px; text-align:left; background:#f0f0f0; }
+  .rpt-dup-table td { padding:9px 10px; border-bottom:1px solid #ddd; font-size:11px; font-family:monospace; vertical-align:top; }
+  .rpt-dup-table tr:nth-child(even) td { background:#fafafa; }
+  .rpt-instructions { background:#f9f9f9; border:1px solid #ddd; padding:14px 18px; border-radius:4px; font-size:11px; line-height:1.7; }
+  .rpt-footer { margin-top:40px; padding-top:10px; border-top:1px solid #ccc; font-size:9px; color:#999; display:flex; justify-content:space-between; }
+
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loading-city">City of Milwaukee — Street Maintenance</div>
+  <div class="loading-spinner"></div>
+  <div class="loading-msg">Loading priority dashboard…</div>
+</div>
+
+<div id="error-screen">
+  <div style="font-size:40px;margin-bottom:16px">⚠️</div>
+  <div class="error-title" id="error-title">Dashboard unavailable</div>
+  <div class="error-sub" id="error-sub">No priority data has been uploaded yet.<br>Please contact your supervisor.</div>
+</div>
+
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-city">City of Milwaukee — DPW Street Maintenance</div>
+    <div class="topbar-title">Pothole Priority Dashboard</div>
+    <div class="topbar-meta" id="topbar-meta">
+      <span id="tb-stats"></span>
+      <span class="topbar-updated" id="tb-updated"></span>
+      <button class="export-btn" onclick="exportPDF()">&#x2193; Export Top 10 PDF</button>
+    </div>
+  </div>
+
+  <div class="dist-key">
+    <div class="dist-key-item">
+      <div class="dist-key-label" style="color:var(--d2)">District 2 — North</div>
+      <div class="dist-key-sub">N of Center St (W of 60th) / Keefe Ave (E of 60th)</div>
+    </div>
+    <div class="dist-key-item">
+      <div class="dist-key-label" style="color:var(--d1)">District 1 — Central</div>
+      <div class="dist-key-sub">Between district boundaries and Greenfield Ave</div>
+    </div>
+    <div class="dist-key-item">
+      <div class="dist-key-label" style="color:var(--d3)">District 3 — South</div>
+      <div class="dist-key-sub">South of Greenfield Ave to city limits</div>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-priority" onclick="switchTab('priority')">Priority List</button>
+    <button class="tab-btn" id="tab-research" onclick="switchTab('research')">SR Research</button>
+  </div>
+
+  <!-- Priority tab content -->
+  <div id="priority-tab">
+  <div class="filterbar" id="filterbar"></div>
+  <div class="legend" id="legend"></div>
+
+  <div class="col-header">
+    <span>#</span><span>Score</span><span>D</span><span>Street</span><span>Extents</span>
+    <span id="recs-header">Recs</span><span>SW</span><span>Sev</span><span>Flags</span><span>Last SR</span>
+  </div>
+
+  <div id="rows"></div>
+  <div class="footer" id="footer"></div>
+</div>
+
+  </div><!-- end priority-tab -->
+
+<div id="print-view"></div>
+<div id="research-panel">
+  <div class="search-bar">
+    <input type="text" id="res-search" placeholder="Type an address or intersection… e.g. 2110 W Oklahoma Ave or 27th &amp; Oklahoma" onkeydown="if(event.key==='Enter')runSearch()">
+    <button onclick="runSearch()">Search</button>
+  </div>
+  <div id="res-results"><div class="res-empty">Enter an address or intersection above to look up service requests.</div></div>
+  <div id="research-print-view"></div>
+</div>
+
+<script>
+const DIST_COLORS = {
+  1:{ accent:'#60a5fa', badge:'#1e3a8a' },
+  2:{ accent:'#34d399', badge:'#064e3b' },
+  3:{ accent:'#fb923c', badge:'#7c2d12' },
+  0:{ accent:'#8b949e', badge:'#21262d' }, // fallback for unassigned
+};
+
+let allSegments = [];
+let quietDays = 14;
+let distFilter = 'all';
+let recencyFilter = 'all';
+let searchVal = '';
+let expandedKey = null;
+let dataUpdatedAt = '';
+let dataMeta = {};
+
+function computeDerived(seg, qd) {
+  const recs = seg.daysList.filter(d => d <= qd).length;
+  const score = parseFloat(((recs * seg.sw * 2) + (seg.sev * 0.3) + (seg.urgent ? 15 : 0)).toFixed(1));
+  const quiet = seg.mostRecent > qd;
+  return { ...seg, recs, score, quiet };
+}
+
+function getDerived() {
+  return allSegments
+    .map(s => computeDerived(s, quietDays))
+    .sort((a,b) => b.score - a.score)
+    .map((s,i) => ({ ...s, rank:i+1 }));
+}
+
+function getFiltered(derived) {
+  return derived.filter(d => {
+    if (distFilter !== 'all' && distFilter !== 'urgent') { if (String(d.dist) !== distFilter) return false; }
+    if (distFilter === 'urgent' && !d.urgent) return false;
+    if (recencyFilter === 'active' && d.quiet) return false;
+    if (recencyFilter === 'quiet' && !d.quiet) return false;
+    if (searchVal && !d.street.toLowerCase().includes(searchVal.toLowerCase())) return false;
+    return true;
+  });
+}
+
+function rankColor(r) {
+  return r<=10 ? '#ef4444' : r<=30 ? '#f59e0b' : r<=75 ? '#eab308' : '#6e7681';
+}
+
+function btn(type, val, label, color) {
+  const active = type==='all'
+    ? (distFilter==='all' && recencyFilter==='all')
+    : type==='dist' ? distFilter===val
+    : recencyFilter===val;
+  const tc = active ? (color==='#6e7681'?'#fff':color==='#8b949e'?'#000':'#000') : 'var(--muted)';
+  const onclick = type==='all' ? 'setAll()' : type==='dist' ? `setDist('${val}')` : `setRec('${val}')`;
+  return `<button class="fbtn${active?' active':''}" style="${active?`background:${color};color:${tc};border-color:${color}`:''}" onclick="${onclick}">${label}</button>`;
+}
+
+function render() {
+  const derived = getDerived();
+  const filtered = getFiltered(derived);
+  const qc = derived.filter(d=>d.quiet).length;
+  const ac = derived.filter(d=>!d.quiet).length;
+  const d1 = derived.filter(d=>d.dist===1).length;
+  const d2 = derived.filter(d=>d.dist===2).length;
+  const d3 = derived.filter(d=>d.dist===3).length;
+  const uc = derived.filter(d=>d.urgent).length;
+
+  // Stats bar
+  document.getElementById('tb-stats').innerHTML =
+    `${(dataMeta.totalRecs||0).toLocaleString()} open SRs &nbsp;·&nbsp; ${derived.length} segments &nbsp;·&nbsp;
+    <span style="color:var(--d2)">D2: ${d2}</span> &nbsp;
+    <span style="color:var(--d1)">D1: ${d1}</span> &nbsp;
+    <span style="color:var(--d3)">D3: ${d3}</span> &nbsp;·&nbsp;
+    <span style="color:var(--red)">${uc} urgent</span> &nbsp;·&nbsp;
+    <span style="color:var(--gold)">Recs reflect last ${quietDays} days</span>`;
+
+  // Filter bar
+  document.getElementById('filterbar').innerHTML =
+    btn('all','all',`All (${derived.length})`, '#f59e0b') +
+    btn('dist','2',`D2 North (${d2})`, '#34d399') +
+    btn('dist','1',`D1 Central (${d1})`, '#60a5fa') +
+    btn('dist','3',`D3 South (${d3})`, '#fb923c') +
+    btn('dist','urgent',`⚠ Urgent (${uc})`, '#f87171') +
+    `<div class="divider"></div>` +
+    btn('rec','all','All','#8b949e') +
+    btn('rec','active',`🔴 Active (${ac})`, '#ef4444') +
+    btn('rec','quiet',`⬜ Quiet (${qc})`, '#6e7681') +
+    `<div class="window-control">
+      <span>Window:</span>
+      <input type="number" min="1" max="365" value="${quietDays}" oninput="setQD(this.value)">
+      <span>days</span>
+    </div>
+    <input class="search-input" placeholder="Search street…" value="${searchVal}" oninput="setSearch(this.value)">`;
+
+  document.getElementById('recs-header').title = `SRs filed in last ${quietDays} days`;
+
+  document.getElementById('legend').innerHTML =
+    `<span><strong style="color:var(--gold)">Recs</strong> = SRs in last <strong style="color:var(--gold)">${quietDays}</strong> days &nbsp;·&nbsp; Score recomputes live from this window</span>
+     <span><span style="color:#ef4444">🔴 Active</span> = SR within window &nbsp;·&nbsp; <span style="color:var(--faint)">⬜ Quiet</span> = no SR in window — verify in field before dispatching crew</span>`;
+
+  // Rows
+  const rowsEl = document.getElementById('rows');
+  if (!filtered.length) {
+    rowsEl.innerHTML = '<div class="empty">No segments match your filters.</div>';
+  } else {
+    rowsEl.innerHTML = filtered.map(d => {
+      const dc = DIST_COLORS[d.dist];
+      const q = d.quiet;
+      const dim = v => q ? 'var(--dimtext)' : v;
+      const key = `${d.street}||${d.extent}`;
+      const isOpen = expandedKey === key;
+      const safeKey = key.replace(/[^a-z0-9]/gi,'_');
+      const recsColor = q ? 'var(--dimtext)' : d.recs===0 ? '#4b5563' : d.recs>=20 ? '#ef4444' : d.recs>=10 ? '#f59e0b' : '#8b949e';
+      const lastSr = d.mostRecent===0 ? 'today' : `${d.mostRecent}d ago`;
+      const rc = q ? 'var(--dimtext)' : rankColor(d.rank);
+
+      return `
+        <div class="row" style="background:${isOpen?'var(--bg2)':q?'#0a0d12':''};border-left:3px solid ${q?'transparent':dc.accent}"
+          onclick="toggleExpand('${key.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">
+          <span style="color:${rc};font-weight:700">${d.rank}</span>
+          <span style="color:${dim('#6e7681')};font-size:10px">${d.score.toFixed(1)}</span>
+          <span class="dist-badge" style="background:${q?'#1a1a1a':dc.badge};color:${q?'var(--dimtext)':dc.accent};border-color:${q?'#252525':dc.accent}">${d.dist}</span>
+          <span style="color:${dim('var(--text)')};font-weight:600">${d.street}</span>
+          <span style="color:${dim('#8b949e')};font-size:10px">${d.extent}</span>
+          <span style="color:${recsColor};font-weight:${d.recs>=10?700:400}">${d.recs===0?'—':d.recs}</span>
+          <span style="color:${dim(dc.accent)}">${d.sw}</span>
+          <span style="color:${dim(d.sev>=15?'#f87171':d.sev>=8?'#fb923c':'#8b949e')}">${d.sev}</span>
+          <span style="color:${dim('#f87171')};font-size:10px">${d.urgent?'⚠ URG':''}</span>
+          <span style="color:${q?'#4b5563':'#ef4444'};font-weight:${q?400:600};font-size:10px">${lastSr}</span>
+        </div>
+        <div class="row-detail ${isOpen?'open':''}" id="det_${safeKey}">
+          <span style="color:${dc.accent}">[${['','District 1 — Central','District 2 — North','District 3 — South'][d.dist]}]</span>
+          ${q?`<span style="color:#4b5563"> [Last SR: ${d.mostRecent}d ago — no activity in ${quietDays}-day window; verify before dispatching]</span>`:''}
+          ${d.descSamples&&d.descSamples.length ? '<br>'+d.descSamples.map(s=>`"${s}"`).join('<br>') : ''}
+          <div style="margin-top:6px;color:#4b5563">
+            Total SRs on file: ${d.totalRecs} &nbsp;·&nbsp; In ${quietDays}-day window: ${d.recs} &nbsp;·&nbsp; Severity score: ${d.sev} &nbsp;·&nbsp; Street weight: ${d.sw}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  document.getElementById('footer').textContent =
+    `Window (${quietDays}d): Recs and score count only SRs filed within your window. Score = (window recs × SW × 2) + (sev × 0.3) + 15 if urgent. SW 5=principal arterial → 1=local. Click any row to expand descriptions. Data exported: ${dataMeta.fileName||'—'}`;
+}
+
+function setAll()     { distFilter='all'; recencyFilter='all'; render(); }
+function setDist(v)   { distFilter=v; render(); }
+function setRec(v)    { recencyFilter=v; render(); }
+function setSearch(v) { searchVal=v; render(); }
+function setQD(v)     { const n=parseInt(v); if(!isNaN(n)&&n>=1&&n<=365){quietDays=n;render();} }
+function toggleExpand(key) { expandedKey = expandedKey===key?null:key; render(); }
+
+// ── Load data from function ───────────────────────────────────────────────
+async function loadData() {
+  try {
+    // Fetch from GitHub Gist directly
+    const GIST_ID = '47bd725efa57d4bc3753b49ee698a3f3';
+    const GITHUB_TOKEN = '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';
+    const gistRes = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
+    });
+    if (!gistRes.ok) throw new Error(`GitHub API error: ${gistRes.status}`);
+    const gist = await gistRes.json();
+    const gistFile = gist.files['pothole-data.json'];
+    if (!gistFile) throw new Error('No data uploaded yet.');
+    const rawContent = gistFile.truncated
+      ? await (await fetch(gistFile.raw_url)).text()
+      : gistFile.content;
+    const payload = JSON.parse(rawContent);
+    if (!payload.segments || !payload.segments.length) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error-screen').style.display = 'flex';
+      return;
+    }
+    allSegments = payload.segments || [];
+    rawRecords  = payload.records  || [];
+    dataUpdatedAt = payload.updatedAt || '';
+    dataMeta = payload.meta || {};
+
+    // Format updated timestamp
+    if (dataUpdatedAt) {
+      const d = new Date(dataUpdatedAt);
+      document.getElementById('tb-updated').textContent =
+        'Updated: ' + d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    }
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    render();
+
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error-screen').style.display = 'flex';
+    document.getElementById('error-title').textContent = 'Could not load dashboard';
+    document.getElementById('error-sub').textContent = `Error: ${e.message}\n\nPlease try refreshing, or contact your supervisor.`;
+  }
+}
+
+loadData();
+
+function exportPDF() {
+  const derived = getDerived();
+  const today = new Date().toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  const distNames = {
+    1: 'District 1 — Central',
+    2: 'District 2 — North',
+    3: 'District 3 — South',
+  };
+  const distSubs = {
+    1: 'N of Greenfield Ave · S of Center St / Keefe Ave',
+    2: 'N of Center St (W of 60th) / Keefe Ave (E of 60th) to city limits',
+    3: 'S of Greenfield Ave to city limits',
+  };
+
+  let html = '';
+
+  [2, 1, 3].forEach(distNum => {
+    const top10 = derived.filter(d => d.dist === distNum).slice(0, 10);
+    html += `
+      <div class="print-page">
+        <div class="print-header">
+          <div class="print-agency">City of Milwaukee — Department of Public Works — Street Maintenance</div>
+          <div class="print-title">Pothole Priority Assignment List</div>
+          <div class="print-district">${distNames[distNum]}</div>
+          <div class="print-agency" style="font-size:9px;color:#555;margin-top:2px;">${distSubs[distNum]}</div>
+          <div class="print-meta">
+            <span>Generated: ${today}</span>
+            <span>Data: ${dataMeta.fileName || 'Unknown export'} &nbsp;|&nbsp; ${(dataMeta.totalRecs||0).toLocaleString()} open SRs &nbsp;|&nbsp; Window: ${quietDays} days</span>
+          </div>
+        </div>
+        <table class="print-table">
+          <thead>
+            <tr>
+              <th style="width:36px">#</th>
+              <th>Street</th>
+              <th style="width:190px">Block Extents</th>
+              <th style="width:160px">Assigned To</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${top10.map((d, i) => `
+              <tr>
+                <td class="print-rank">${i + 1}</td>
+                <td>
+                  <div class="print-street">${d.street}</div>
+                  ${d.urgent ? '<div class="print-urgent">⚠ Urgent</div>' : ''}
+                </td>
+                <td style="font-size:12px;color:#333;font-family:monospace;">${d.extent}</td>
+                <td><input class="print-assign" type="text" /></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div style="margin-top:24px;font-size:9px;color:#999;text-align:right;">
+          Page ${[2,1,3].indexOf(distNum)+1} of 3 &nbsp;|&nbsp; Milwaukee DPW Street Maintenance &nbsp;|&nbsp; CONFIDENTIAL — INTERNAL USE ONLY
+        </div>
+      </div>`;
+  });
+
+  document.getElementById('print-view').innerHTML = html;
+  setTimeout(() => window.print(), 100);
+}
+
+// ── TAB SWITCHING ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  const isPriority = tab === 'priority';
+  document.getElementById('priority-tab').style.display = isPriority ? '' : 'none';
+  document.getElementById('research-panel').style.display = isPriority ? 'none' : 'block';
+  document.getElementById('tab-priority').className = 'tab-btn' + (isPriority ? ' active' : '');
+  document.getElementById('tab-research').className = 'tab-btn' + (!isPriority ? ' active' : '');
+  // Keep topbar/dist-key visible for both tabs
+}
+
+// ── RESEARCH ───────────────────────────────────────────────────────────────
+let rawRecords = [];
+
+function normalize(str) {
+  return (str || '').toLowerCase()
+    .replace(/ave?/g, 'ave').replace(/blvd?/g, 'blvd')
+    .replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function runSearch() {
+  const query = document.getElementById('res-search').value.trim();
+  if (!query) return;
+  if (!rawRecords.length) {
+    document.getElementById('res-results').innerHTML =
+      '<div class="res-empty">No SR data loaded yet. Ask your supervisor to upload the latest export.</div>';
+    return;
+  }
+
+  const qParts = normalize(query).split(' ').filter(p => p.length > 1);
+  const threshold = Math.max(1, Math.floor(qParts.length * 0.5));
+
+  const scored = rawRecords.map(r => {
+    const addr = normalize(r.address || '');
+    const matches = qParts.filter(p => addr.includes(p)).length;
+    return { ...r, matches };
+  }).filter(r => r.matches >= threshold);
+
+  if (!scored.length) {
+    document.getElementById('res-results').innerHTML =
+      `<div class="res-empty">No service requests found matching "<strong>${query}</strong>".<br>Try a partial address or just the street name.</div>`;
+    return;
+  }
+
+  scored.sort((a, b) => new Date(a.dateCreated) - new Date(b.dateCreated));
+
+  const openRecs = scored.filter(r => !(r.status||'').toLowerCase().includes('closed'));
+  const dates = openRecs.map(r => new Date(r.dateCreated)).filter(d => !isNaN(d)).sort((a,b)=>a-b);
+  const fmtDate = d => d instanceof Date && !isNaN(d)
+    ? d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+  const dateRange = dates.length >= 2
+    ? fmtDate(dates[0]) + ' – ' + fmtDate(dates[dates.length-1])
+    : dates.length === 1 ? fmtDate(dates[0]) : '—';
+
+  const matchSeg = allSegments.find(seg =>
+    qParts.some(p => normalize(seg.street||'').includes(p))
+  );
+  const scoreLabel = matchSeg
+    ? `${matchSeg.score?.toFixed(1)||'—'} — Rank #${allSegments.indexOf(matchSeg)+1} citywide`
+    : 'Not in top priority segments';
+
+  const descs = scored.map(r=>(r.desc||'').trim()).filter(d=>d.length>10);
+  const SWORDS = ['large','deep','dangerous','hazard','damage','sinking','crumbling','sunken','severe','huge','massive','entire','school','accident','injury','emergency'];
+  const kw = {};
+  descs.forEach(d => SWORDS.forEach(w => { if(d.toLowerCase().includes(w)) kw[w]=(kw[w]||0)+1; }));
+  const topWords = Object.entries(kw).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([w,c])=>`"${w}" (${c}×)`);
+  const summaryText = (topWords.length ? `Most common complaint language: ${topWords.join(', ')}. ` : '')
+    + `${openRecs.length} of ${scored.length} requests are still open.`;
+
+  const primary = openRecs[0];
+  const dups = openRecs.slice(1);
+
+  const srHTML = scored.map(r => {
+    const isP = r === primary;
+    const isD = dups.includes(r);
+    const d = r.dateCreated ? fmtDate(new Date(r.dateCreated)) : '—';
+    return `<div class="res-sr-item${isP?' oldest':''}">
+      <div class="res-sr-header">
+        <span class="res-sr-id">#${r.id||'—'}</span>
+        <span class="res-sr-date">${d}</span>
+        <span class="res-sr-addr">${r.address||''}</span>
+        ${isP?'<span class="res-sr-badge">PRIMARY — ASSIGN &amp; CLOSE</span>':''}
+        ${isD?'<span style="font-size:8px;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:monospace">DUPLICATE</span>':''}
+      </div>
+      ${r.desc?`<div class="res-sr-desc">${r.desc.length>180?r.desc.substring(0,180)+'…':r.desc}</div>`:''}
+    </div>`;
+  }).join('');
+
+  // Encode records safely for onclick
+  const encoded = encodeURIComponent(JSON.stringify(scored));
+
+  document.getElementById('res-results').innerHTML = `
+    <div class="res-stats">
+      <div class="res-stat"><div class="res-stat-val">${scored.length}</div><div class="res-stat-lbl">Total SRs Found</div></div>
+      <div class="res-stat"><div class="res-stat-val">${openRecs.length}</div><div class="res-stat-lbl">Open</div></div>
+      <div class="res-stat"><div class="res-stat-val" style="font-size:13px;padding-top:8px">${dateRange}</div><div class="res-stat-lbl">Open SR Date Range</div></div>
+    </div>
+    <div class="res-score-card">
+      <div class="res-score-num">${matchSeg?matchSeg.score?.toFixed(0)||'—':'—'}</div>
+      <div class="res-score-info">
+        <div class="res-score-label">Priority Score</div>
+        <div class="res-score-sub">${scoreLabel}</div>
+      </div>
+    </div>
+    <div class="res-summary">
+      <div class="res-section-title">Description Summary</div>
+      <div class="res-summary-text">${summaryText}</div>
+      ${descs.slice(0,3).map(d=>`<div style="margin-top:8px;padding:8px 12px;background:var(--bg3);border-radius:4px;font-size:11px;color:var(--muted);font-family:monospace;line-height:1.5">"${d.length>200?d.substring(0,200)+'…':d}"</div>`).join('')}
+    </div>
+    <div class="res-section-title" style="margin-bottom:10px">Service Requests (${scored.length}) — Oldest First</div>
+    <div class="res-sr-list">${srHTML}</div>
+    ${openRecs.length>0?`<button class="res-export-btn" onclick="exportResearchPDF(decodeURIComponent('${encoded}'))">&#x2193; Export Closure Work Order PDF</button>`:''}
+  `;
+}
+
+function exportResearchPDF(recordsJson) {
+  const records = typeof recordsJson === 'string' ? JSON.parse(recordsJson) : recordsJson;
+  const openRecs = records
+    .filter(r => !(r.status||'').toLowerCase().includes('closed'))
+    .sort((a,b) => new Date(a.dateCreated)-new Date(b.dateCreated));
+  if (!openRecs.length) { alert('No open records to export.'); return; }
+
+  const primary = openRecs[0];
+  const dups = openRecs.slice(1);
+  const today = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const fmtD = d => d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+  const addr = records[0]?.address || document.getElementById('res-search').value;
+
+  document.getElementById('research-print-view').innerHTML = `
+    <div class="rpt-page">
+      <div class="rpt-header">
+        <div class="rpt-agency">City of Milwaukee — Department of Public Works — Street Maintenance</div>
+        <div class="rpt-title">Service Request Closure Work Order</div>
+        <div class="rpt-sub">${addr}</div>
+        <div class="rpt-meta">Generated: ${today} &nbsp;·&nbsp; ${openRecs.length} open SR${openRecs.length!==1?'s':''}</div>
+      </div>
+
+      <div class="rpt-section">
+        <div class="rpt-section-title">Step 1 — Primary Request · Assign to Crew &amp; Close as Completed</div>
+        <div class="rpt-primary">
+          <div class="rpt-primary-label">⭐ Controlling request — assign your crew to this SR</div>
+          <div class="rpt-primary-id">SR #${primary.id||'—'}</div>
+          <div class="rpt-primary-addr">${primary.address||'—'}</div>
+          <div class="rpt-primary-date">Submitted: ${fmtD(primary.dateCreated)}</div>
+          ${primary.desc?`<div style="margin-top:8px;font-size:11px;color:#444;line-height:1.6;font-style:italic">"${primary.desc}"</div>`:''}
+          <div class="rpt-primary-action">→ Assign crew → complete work in field → close as RESOLVED</div>
+        </div>
+      </div>
+
+      ${dups.length>0?`
+      <div class="rpt-section">
+        <div class="rpt-section-title">Step 2 — Duplicate Requests · Close as Duplicate of SR #${primary.id}</div>
+        <div class="rpt-instructions">
+          The following ${dups.length} request${dups.length!==1?'s':''} refer to the same location.
+          Once the primary request above is resolved, close each of these as a <strong>DUPLICATE</strong>
+          and reference <strong>SR #${primary.id}</strong> in the notes.
+        </div>
+        <table class="rpt-dup-table" style="margin-top:12px">
+          <thead><tr>
+            <th style="width:80px">SR #</th>
+            <th style="width:180px">Date Submitted</th>
+            <th style="width:220px">Address</th>
+            <th>Description</th>
+          </tr></thead>
+          <tbody>
+            ${dups.map(r=>`<tr>
+              <td><strong>${r.id||'—'}</strong></td>
+              <td>${fmtD(r.dateCreated)}</td>
+              <td>${r.address||'—'}</td>
+              <td>${(r.desc||'—').substring(0,100)}${(r.desc||'').length>100?'…':''}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`:'<p style="font-size:12px;color:#666;margin-top:12px">No duplicate requests — this is the only open SR at this location.</p>'}
+
+      <div class="rpt-footer">
+        <span>Milwaukee DPW Street Maintenance — INTERNAL USE ONLY</span>
+        <span>Generated ${today}</span>
+      </div>
+    </div>`;
+  setTimeout(() => window.print(), 100);
+}
+</script>
+</body>
+</html>
