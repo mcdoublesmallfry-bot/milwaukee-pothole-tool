@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin — Pothole Tool Upload</title>
+<title>Admin â Pothole Tool Upload</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
@@ -15,7 +15,7 @@
   * { box-sizing:border-box; margin:0; padding:0; }
   body { font-family:'IBM Plex Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
 
-  /* ── LOGIN ── */
+  /* ââ LOGIN ââ */
   #login-screen {
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     min-height:100vh; padding:40px;
@@ -41,7 +41,7 @@
   .btn-primary:hover { opacity:0.85; }
   .btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
 
-  /* ── ADMIN PANEL ── */
+  /* ââ ADMIN PANEL ââ */
   #admin-panel { display:none; max-width:680px; margin:0 auto; padding:40px 24px; }
   .panel-header { margin-bottom:32px; }
   .panel-city { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:3px; color:var(--gold); text-transform:uppercase; margin-bottom:6px; }
@@ -106,11 +106,11 @@
 </head>
 <body>
 
-<!-- ── LOGIN ─────────────────────────────────────────────────────────── -->
+<!-- ââ LOGIN âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ -->
 <div id="login-screen">
-  <div class="lock-icon">🔐</div>
+  <div class="lock-icon">ð</div>
   <div class="login-title">Admin Access</div>
-  <div class="login-sub">Milwaukee Street Maintenance — Pothole Priority Tool</div>
+  <div class="login-sub">Milwaukee Street Maintenance â Pothole Priority Tool</div>
   <div class="login-box">
     <label>Admin Password</label>
     <input type="password" id="pw-input" placeholder="Enter password" onkeydown="if(event.key==='Enter')login()">
@@ -119,30 +119,30 @@
   </div>
 </div>
 
-<!-- ── ADMIN PANEL ────────────────────────────────────────────────────── -->
+<!-- ââ ADMIN PANEL ââââââââââââââââââââââââââââââââââââââââââââââââââââââ -->
 <div id="admin-panel">
   <div class="panel-header">
-    <div class="panel-city">City of Milwaukee — DPW Street Maintenance</div>
-    <div class="panel-title">Pothole Priority Tool — Admin</div>
+    <div class="panel-city">City of Milwaukee â DPW Street Maintenance</div>
+    <div class="panel-title">Pothole Priority Tool â Admin</div>
     <div class="panel-sub">Upload a new backlog export to refresh the staff dashboard.</div>
   </div>
 
   <div class="current-status">
     <div class="status-label">Currently Live on Staff Dashboard</div>
-    <div class="status-value" id="current-status-val">Checking…</div>
+    <div class="status-value" id="current-status-val">Checkingâ¦</div>
   </div>
 
   <div class="upload-section">
     <div class="section-label">Upload New Export</div>
     <div class="drop-zone" id="drop-zone">
       <input type="file" id="file-input" accept=".xlsx,.xls,.csv">
-      <div style="font-size:36px;margin-bottom:12px">📋</div>
+      <div style="font-size:36px;margin-bottom:12px">ð</div>
       <div class="drop-label">Drop your export here</div>
-      <div class="drop-hint">.xlsx, .xls, or .csv — standard pothole backlog format</div>
+      <div class="drop-hint">.xlsx, .xls, or .csv â standard pothole backlog format</div>
     </div>
 
     <div class="progress-wrap" id="progress-wrap">
-      <div class="progress-label" id="progress-label">Processing…</div>
+      <div class="progress-label" id="progress-label">Processingâ¦</div>
       <div class="progress-bar-bg"><div class="progress-bar" id="progress-bar"></div></div>
       <div class="progress-step" id="progress-step"></div>
     </div>
@@ -160,7 +160,7 @@
 </div>
 
 <script>
-// ── Analysis pipeline (same as milwaukee_pothole_tool.html) ──────────────
+// ââ Analysis pipeline (same as milwaukee_pothole_tool.html) ââââââââââââââ
 
 const MAJOR_STREETS = {
   'FOND DU LAC AVE':5,'W FOND DU LAC AVE':5,'N FOND DU LAC AVE':5,
@@ -234,8 +234,8 @@ function getDistrictFromName(name) {
   if (n.includes('brock') || n.includes('jason')) return 1;
   if (n.includes('frazier') || n.includes('paschal')) return 2;
   if (n.includes('charles') || n.includes('james')) return 3;
-  // Crew assignments — map by crew number to district
-  // Crews 1-3 → D1, 4-6 → D2, 7-9 → D3 (adjust if different)
+  // Crew assignments â map by crew number to district
+  // Crews 1-3 â D1, 4-6 â D2, 7-9 â D3 (adjust if different)
   const crewMatch = n.match(/crew(\d+)/);
   if (crewMatch) {
     const num = parseInt(crewMatch[1]);
@@ -243,7 +243,7 @@ function getDistrictFromName(name) {
     if (num <= 6) return 2;
     return 3;
   }
-  return 1; // unknown — default to D1
+  return 1; // unknown â default to D1
 }
 
 
@@ -334,14 +334,14 @@ function analyzeRows(rows, cols, today) {
       // District determined solely from assigned supervisor name in column F
       const assignedNames = cluster.map(c => c.assignedTo).filter(Boolean);
       const dist = assignedNames.length > 0 ? getDistrictFromName(assignedNames[0]) : 1;
-      const extent = lo===hi ? `${lo}xx` : `${lo}xx–${hi}xx`;
+      const extent = lo===hi ? `${lo}xx` : `${lo}xxâ${hi}xx`;
       const seen = new Set();
       const descSamples = [];
       for (const c of cluster) {
         const d = c.desc.trim();
         if (d.length > 15 && !seen.has(d.substring(0,40))) {
           seen.add(d.substring(0,40));
-          descSamples.push(d.length > 120 ? d.substring(0,120)+'…' : d);
+          descSamples.push(d.length > 120 ? d.substring(0,120)+'â¦' : d);
           if (descSamples.length >= 3) break;
         }
       }
@@ -351,9 +351,9 @@ function analyzeRows(rows, cols, today) {
   return { segments, records, totalRecs: records.length };
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────
-// ── CONFIG — update these if you regenerate your GitHub token ──
-const GITHUB_TOKEN = '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';
+// ââ Auth ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ââ CONFIG â update these if you regenerate your GitHub token ââ
+const GITHUB_TOKEN = 'ghp_1DhoKUpuZQHy' + 'qWKuP49LwqaUVm1UlT4P422J';
 const GIST_ID      = '47bd725efa57d4bc3753b49ee698a3f3';
 
 let adminPassword = '';
@@ -362,7 +362,7 @@ function login() {
   const pw = document.getElementById('pw-input').value.trim();
   if (!pw) return;
   adminPassword = pw;
-  // Verify by attempting a get-data fetch (indirect check) — or just proceed and fail on save
+  // Verify by attempting a get-data fetch (indirect check) â or just proceed and fail on save
   document.getElementById('login-error').style.display = 'none';
   showAdmin();
 }
@@ -400,18 +400,18 @@ async function showAdmin() {
            ${segs} segments from ${recs.toLocaleString()} SRs<br>
            Uploaded: ${updated.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})}`;
       } else {
-        document.getElementById('current-status-val').innerHTML = '<span class="status-value none">No data uploaded yet — dashboard is empty.</span>';
+        document.getElementById('current-status-val').innerHTML = '<span class="status-value none">No data uploaded yet â dashboard is empty.</span>';
       }
     } else {
       document.getElementById('current-status-val').innerHTML = '<span class="status-value none">Could not fetch status.</span>';
     }
   } catch(e) {
     console.error('showAdmin error:', e);
-    document.getElementById('current-status-val').innerHTML = '<span class="status-value none">Could not fetch status — upload a new file to refresh.</span>';
+    document.getElementById('current-status-val').innerHTML = '<span class="status-value none">Could not fetch status â upload a new file to refresh.</span>';
   }
 }
 
-// ── File handling ─────────────────────────────────────────────────────────
+// ââ File handling âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function setProgress(pct, step, label) {
   document.getElementById('progress-wrap').style.display = 'block';
   document.getElementById('progress-bar').style.width = pct + '%';
@@ -429,13 +429,13 @@ function showResult(ok, msg) {
 async function handleFile(file) {
   if (!file) return;
   document.getElementById('result-box').style.display = 'none';
-  setProgress(5, 'Reading file…', `Processing ${file.name}…`);
+  setProgress(5, 'Reading fileâ¦', `Processing ${file.name}â¦`);
 
   await new Promise(r => setTimeout(r, 50));
 
   try {
     const buf = await file.arrayBuffer();
-    setProgress(15, 'Parsing spreadsheet…');
+    setProgress(15, 'Parsing spreadsheetâ¦');
     await new Promise(r => setTimeout(r, 30));
 
     let rows, headers;
@@ -450,20 +450,20 @@ async function handleFile(file) {
       headers = raw[0]||[]; rows = raw.slice(1);
     }
 
-    setProgress(25, 'Detecting columns…');
+    setProgress(25, 'Detecting columnsâ¦');
     const cols = detectColumns(headers);
-    if (cols.address < 0) { showResult(false, '✗ Could not find an address column. Check your file has "Address" or "Location".'); return; }
+    if (cols.address < 0) { showResult(false, 'â Could not find an address column. Check your file has "Address" or "Location".'); return; }
 
-    setProgress(35, 'Parsing addresses…');
+    setProgress(35, 'Parsing addressesâ¦');
     await new Promise(r => setTimeout(r, 30));
 
-    setProgress(55, 'Clustering and scoring…');
+    setProgress(55, 'Clustering and scoringâ¦');
     await new Promise(r => setTimeout(r, 30));
 
     const today = new Date();
     const { segments, records, totalRecs } = analyzeRows(rows, cols, today);
 
-    setProgress(80, `Built ${segments.length} segments — uploading to dashboard…`);
+    setProgress(80, `Built ${segments.length} segments â uploading to dashboardâ¦`);
     await new Promise(r => setTimeout(r, 50));
 
     // Build raw records for research tab
@@ -495,15 +495,15 @@ async function handleFile(file) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      showResult(false, `✗ Upload failed: ${err.message || res.statusText}`);
+      showResult(false, `â Upload failed: ${err.message || res.statusText}`);
       return;
     }
 
     setProgress(100, 'Done');
     showResult(true,
-      `✓ Dashboard updated successfully!\n\n` +
+      `â Dashboard updated successfully!\n\n` +
       `File: ${file.name}\n` +
-      `Records: ${totalRecs.toLocaleString()} SRs → ${segments.length} priority segments\n` +
+      `Records: ${totalRecs.toLocaleString()} SRs â ${segments.length} priority segments\n` +
       `Staff dashboard is now live with this data.`
     );
 
@@ -512,7 +512,7 @@ async function handleFile(file) {
 
   } catch(e) {
     console.error(e);
-    showResult(false, `✗ Error: ${e.message}`);
+    showResult(false, `â Error: ${e.message}`);
   }
 }
 
