@@ -694,16 +694,13 @@ function buildSRTable(seg, rawRecords, qd) {
   const streetUp = seg.street.toUpperCase();
   const streetCore = streetUp.replace(/^[NSEW]\s+/, '');
 
-  // Use pre-built index for fast lookup
-  let segSRs = [];
-  const idx = window._srIndex || {};
-  for (const [st, recs] of Object.entries(idx)) {
-    if (st.includes(streetUp) || st.includes(streetCore) || streetCore && st.includes(streetCore)) {
-      recs.forEach(r => {
-        if (r._num >= seg.lo && r._num <= (seg.hi + 99)) segSRs.push(r);
-      });
-    }
-  }
+  // Filter rawRecords to this segment
+  let segSRs = rawRecords.filter(r => {
+    const addr = (r.address || '').toUpperCase();
+    if (!addr.includes(streetUp) && !addr.includes(streetCore)) return false;
+    const num = parseInt((addr.match(/^(\d+)/) || [])[1] || '0');
+    return num >= seg.lo && num <= (seg.hi + 99);
+  });
 
   // Filter to window if active
   if (qd !== null) {
