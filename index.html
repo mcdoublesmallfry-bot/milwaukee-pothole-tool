@@ -694,9 +694,12 @@ function buildSRTable(seg, rawRecords, qd) {
   const streetUp = seg.street.toUpperCase();
   const streetCore = streetUp.replace(/^[NSEW]\s+/, '');
 
-  // Filter rawRecords to this segment
+  // Normalize address abbreviations before matching
+  function normAddr(a) {
+    return (a||'').toUpperCase().replace(/,.*$/,'').replace(/\bAV\b/g,'AVE').replace(/\bBL\b/g,'BLVD').trim();
+  }
   let segSRs = rawRecords.filter(r => {
-    const addr = (r.address || '').toUpperCase();
+    const addr = normAddr(r.address);
     if (!addr.includes(streetUp) && !addr.includes(streetCore)) return false;
     const num = parseInt((addr.match(/^(\d+)/) || [])[1] || '0');
     return num >= seg.lo && num <= (seg.hi + 99);
