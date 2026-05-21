@@ -528,10 +528,10 @@ function render() {
     btn('rec','quiet',`⬜ Quiet (${qc})`, '#6e7681') +
     `<div class="window-control">
       <span>Window:</span>
-      <input type="number" min="1" max="365" value="${quietDays}" oninput="setQD(this.value)">
+      <input type="number" min="1" max="365" value="${quietDays}" onkeydown="if(event.key==='Enter')setQD(this.value)" onblur="setQD(this.value)" style="width:52px">
       <span>days</span>
     </div>
-    <input class="search-input" placeholder="Search street…" value="${searchVal}" oninput="setSearch(this.value)">`;
+    <input class="search-input" placeholder="Search street… (press Enter)" value="${searchVal}" onkeydown="if(event.key==='Enter')setSearch(this.value)">`;
 
   document.getElementById('recs-header').title = `SRs filed in last ${quietDays} days`;
 
