@@ -408,9 +408,23 @@
 
 <div id="print-view"></div>
 <div id="research-panel">
-  <div class="search-bar">
-    <input type="text" id="res-search" placeholder="Type an address or intersection… e.g. 2110 W Oklahoma Ave or 27th &amp; Oklahoma" onkeydown="if(event.key==='Enter')runSearch()">
-    <button onclick="runSearch()">Search</button>
+  <div class="search-bar" style="flex-direction:column;gap:12px;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="flex:2;min-width:200px;">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-family:monospace;margin-bottom:5px;">Street Name</div>
+        <input type="text" id="res-street" placeholder="e.g. Oklahoma Ave or W Mitchell St" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-size:13px;border-radius:6px;font-family:inherit;" onkeydown="if(event.key==='Enter')runSearch()">
+      </div>
+      <div style="flex:1;min-width:100px;">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-family:monospace;margin-bottom:5px;">From Block</div>
+        <input type="number" id="res-from" placeholder="e.g. 2100" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-size:13px;border-radius:6px;font-family:inherit;" onkeydown="if(event.key==='Enter')runSearch()">
+      </div>
+      <div style="flex:1;min-width:100px;">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-family:monospace;margin-bottom:5px;">To Block</div>
+        <input type="number" id="res-to" placeholder="e.g. 2900" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-size:13px;border-radius:6px;font-family:inherit;" onkeydown="if(event.key==='Enter')runSearch()">
+      </div>
+      <button onclick="runSearch()" style="padding:10px 22px;background:var(--gold);color:#000;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:monospace;white-space:nowrap;height:42px;align-self:flex-end;">Search</button>
+    </div>
+    <div style="font-size:10px;color:var(--faint);font-family:monospace;">Block range is optional — leave blank to search entire street.</div>
   </div>
   <div id="res-results"><div class="res-empty">Enter an address or intersection above to look up service requests.</div></div>
   <div id="research-print-view"></div>
@@ -697,23 +711,41 @@ function normalize(str) {
     .replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function normalizeStreet(s) {
+  return (s || '').toUpperCase().trim()
+    .replace(/\bAVE?\b/g, 'AVE').replace(/\bBLVD?\b/g, 'BLVD')
+    .replace(/\bSTR?\b/g, 'ST').replace(/\bDRIVE\b/g, 'DR')
+    .replace(/\bROAD\b/g, 'RD').replace(/\s+/g, ' ').trim();
+}
+
 function runSearch() {
-  const query = document.getElementById('res-search').value.trim();
-  if (!query) return;
-  if (!rawRecords.length) {
-    document.getElementById('res-results').innerHTML =
-      '<div class="res-empty">No SR data loaded yet. Ask your supervisor to upload the latest export.</div>';
+  const streetRaw = document.getElementById('res-street')?.value.trim() || '';
+  const fromVal   = document.getElementById('res-from')?.value.trim() || '';
+  const toVal     = document.getElementById('res-to')?.value.trim() || '';
+  if (!streetRaw) {
+    document.getElementById('res-results').innerHTML = '<div class="res-empty">Please enter a street name to search.</div>';
     return;
   }
-
-  const qParts = normalize(query).split(' ').filter(p => p.length > 1);
-  const threshold = Math.max(1, Math.floor(qParts.length * 0.5));
-
-  const scored = rawRecords.map(r => {
-    const addr = normalize(r.address || '');
-    const matches = qParts.filter(p => addr.includes(p)).length;
-    return { ...r, matches };
-  }).filter(r => r.matches >= threshold);
+  if (!rawRecords.length) {
+    document.getElementById('res-results').innerHTML = '<div class="res-empty">No SR data loaded yet.</div>';
+    return;
+  }
+  const streetNorm = normalizeStreet(streetRaw);
+  const streetCore = streetNorm.replace(/^[NSEW]\s+/, '');
+  const fromBlock = fromVal ? parseInt(fromVal) : null;
+  const toBlock   = toVal   ? parseInt(toVal)   : null;
+  const scored = rawRecords.filter(r => {
+    const addr = (r.address || '').toUpperCase();
+    if (!addr.includes(streetNorm) && !addr.includes(streetCore)) return false;
+    if (fromBlock !== null || toBlock !== null) {
+      const numMatch = addr.match(/^(\d+)/);
+      if (!numMatch) return false;
+      const num = parseInt(numMatch[1]);
+      if (fromBlock !== null && num < fromBlock) return false;
+      if (toBlock   !== null && num > toBlock)   return false;
+    }
+    return true;
+  });
 
   if (!scored.length) {
     document.getElementById('res-results').innerHTML =
@@ -731,9 +763,10 @@ function runSearch() {
     ? fmtDate(dates[0]) + ' – ' + fmtDate(dates[dates.length-1])
     : dates.length === 1 ? fmtDate(dates[0]) : '—';
 
-  const matchSeg = allSegments.find(seg =>
-    qParts.some(p => normalize(seg.street||'').includes(p))
-  );
+  const matchSeg = allSegments.find(seg => {
+    const sn = normalizeStreet(seg.street||'');
+    return sn.includes(streetCore) || sn.includes(streetNorm);
+  });
   const scoreLabel = matchSeg
     ? `${matchSeg.score?.toFixed(1)||'—'} — Rank #${allSegments.indexOf(matchSeg)+1} citywide`
     : 'Not in top priority segments';
