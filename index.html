@@ -439,7 +439,7 @@ const DIST_COLORS = {
 };
 
 let allSegments = [];
-let quietDays = 14;
+let quietDays = null; // null = window off
 let distFilter = 'all';
 let recencyFilter = 'all';
 let searchVal = '';
@@ -448,12 +448,14 @@ let dataUpdatedAt = '';
 let dataMeta = {};
 
 function computeDerived(seg, qd) {
-  const recs = seg.daysList.filter(d => d <= qd).length;
+  // qd=null means window off — use all SRs
+  const windowOff = qd === null;
+  const recs = windowOff ? seg.daysList.length : seg.daysList.filter(d => d <= qd).length;
   const score = parseFloat(((recs * seg.sw * 2) + (seg.sev * 0.3) + (seg.urgent ? 15 : 0)).toFixed(1));
-  const quiet = seg.mostRecent > qd;
-  // Recalculate extents from only the SRs within the window
+  const quiet = windowOff ? false : seg.mostRecent > qd;
+  // Recalculate extents from SRs within window
   let extent = seg.extent;
-  if (seg.blockNums && seg.daysList.length === seg.blockNums.length) {
+  if (!windowOff && seg.blockNums && seg.daysList.length === seg.blockNums.length) {
     const windowNums = seg.blockNums.filter((_, i) => seg.daysList[i] <= qd);
     if (windowNums.length > 0) {
       const wLo = Math.floor(Math.min(...windowNums) / 100) * 100;
@@ -528,16 +530,18 @@ function render() {
     btn('rec','quiet',`⬜ Quiet (${qc})`, '#6e7681') +
     `<div class="window-control">
       <span>Window:</span>
-      <input type="number" min="1" max="365" value="${quietDays}" onkeydown="if(event.key==='Enter')setQD(this.value)" onblur="setQD(this.value)" style="width:52px">
+      <input type="number" min="1" id="qd-input" value="${quietDays===null?'':quietDays}" onkeydown="if(event.key==='Enter')setQD(this.value)" onblur="setQD(this.value)" style="width:52px;opacity:${quietDays===null?0.3:1}" ${quietDays===null?'disabled':''}>
       <span>days</span>
+      <button onclick="toggleWindow()" style="padding:3px 10px;font-size:10px;font-family:monospace;background:${quietDays===null?'var(--gold)':'var(--bg3)'};color:${quietDays===null?'#000':'var(--muted)'};border:1px solid ${quietDays===null?'var(--gold)':'var(--border)'};border-radius:4px;cursor:pointer;">${quietDays===null?'Window OFF':'Window ON'}</button>
     </div>
     <input class="search-input" placeholder="Search street… (press Enter)" value="${searchVal}" onkeydown="if(event.key==='Enter')setSearch(this.value)">`;
 
   document.getElementById('recs-header').title = `SRs filed in last ${quietDays} days`;
 
-  document.getElementById('legend').innerHTML =
-    `<span><strong style="color:var(--gold)">Recs</strong> = SRs in last <strong style="color:var(--gold)">${quietDays}</strong> days &nbsp;·&nbsp; Score recomputes live from this window</span>
-     <span><span style="color:#ef4444">🔴 Active</span> = SR within window &nbsp;·&nbsp; <span style="color:var(--faint)">⬜ Quiet</span> = no SR in window — verify in field before dispatching crew</span>`;
+  document.getElementById('legend').innerHTML = quietDays === null
+    ? `<span><strong style="color:var(--gold)">Recs</strong> = All SRs on file (window off) &nbsp;·&nbsp; Score reflects full backlog</span>`
+    : `<span><strong style="color:var(--gold)">Recs</strong> = SRs in last <strong style="color:var(--gold)">${quietDays}</strong> days &nbsp;·&nbsp; Score recomputes live from this window</span>
+       <span><span style="color:#ef4444">🔴 Active</span> = SR within window &nbsp;·&nbsp; <span style="color:var(--faint)">⬜ Quiet</span> = no SR in window — verify in field before dispatching crew</span>`;
 
   // Rows
   const rowsEl = document.getElementById('rows');
@@ -570,25 +574,32 @@ function render() {
           <span style="color:${q?'#4b5563':'#ef4444'};font-weight:${q?400:600};font-size:10px">${lastSr}</span>
         </div>
         <div class="row-detail ${isOpen?'open':''}" id="det_${safeKey}">
-          <span style="color:${dc.accent}">[${['','District 1 — Central','District 2 — North','District 3 — South'][d.dist]}]</span>
-          ${q?`<span style="color:#4b5563"> [Last SR: ${d.mostRecent}d ago — no activity in ${quietDays}-day window; verify before dispatching]</span>`:''}
-          ${d.descSamples&&d.descSamples.length ? '<br>'+d.descSamples.map(s=>`"${s}"`).join('<br>') : ''}
-          <div style="margin-top:6px;color:#4b5563">
-            Total SRs on file: ${d.totalRecs} &nbsp;·&nbsp; In ${quietDays}-day window: ${d.recs} &nbsp;·&nbsp; Severity score: ${d.sev} &nbsp;·&nbsp; Street weight: ${d.sw}
-          </div>
-        </div>`;
+          ${buildSRTable(d, rawRecords, quietDays)}
+        </div>`
     }).join('');
   }
 
-  document.getElementById('footer').textContent =
-    `Window (${quietDays}d): Recs and score count only SRs filed within your window. Score = (window recs × SW × 2) + (sev × 0.3) + 15 if urgent. SW 5=principal arterial → 1=local. Click any row to expand descriptions. Data exported: ${dataMeta.fileName||'—'}`;
+  document.getElementById('footer').textContent = quietDays === null
+    ? `Window OFF: Recs and score reflect all SRs on file. Score = (all recs × SW × 2) + (sev × 0.3) + 15 if urgent. SW 5=principal arterial → 1=local. Data exported: ${dataMeta.fileName||'—'}`
+    : `Window (${quietDays}d): Recs and score count only SRs filed within your window. Score = (window recs × SW × 2) + (sev × 0.3) + 15 if urgent. SW 5=principal arterial → 1=local. Data exported: ${dataMeta.fileName||'—'}`;
 }
 
 function setAll()     { distFilter='all'; recencyFilter='all'; render(); }
 function setDist(v)   { distFilter=v; render(); }
 function setRec(v)    { recencyFilter=v; render(); }
 function setSearch(v) { searchVal=v; render(); }
-function setQD(v)     { const n=parseInt(v); if(!isNaN(n)&&n>=1&&n<=365){quietDays=n;render();} }
+function setQD(v) {
+  if (quietDays === null) return; // window off, ignore
+  const n = parseInt(v);
+  if (!isNaN(n) && n >= 1) { quietDays = n; render(); }
+}
+function toggleWindow() {
+  quietDays = quietDays === null ? 14 : null;
+  render();
+  // Restore input value when turning on
+  const inp = document.getElementById('qd-input');
+  if (inp && quietDays !== null) inp.value = quietDays;
+}
 function toggleExpand(key) { expandedKey = expandedKey===key?null:key; render(); }
 
 // ── Load data from function ───────────────────────────────────────────────
@@ -635,6 +646,144 @@ async function loadData() {
     document.getElementById('error-title').textContent = 'Could not load dashboard';
     document.getElementById('error-sub').textContent = `Error: ${e.message}\n\nPlease try refreshing, or contact your supervisor.`;
   }
+}
+
+
+// ── SR TABLE FOR EXPANDED ROW ─────────────────────────────────────────────
+function groupDuplicates(srs) {
+  // Group SRs into duplicate clusters using address proximity rules:
+  // Same block (0-99 gap): within 50 numbers; Cross-block (100 gap): within 25 numbers
+  const sorted = [...srs].sort((a, b) => new Date(a.dateCreated) - new Date(b.dateCreated));
+  const groups = [];
+  const assigned = new Set();
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (assigned.has(i)) continue;
+    const group = [sorted[i]];
+    assigned.add(i);
+    const numA = parseInt((sorted[i].address || '').match(/^(\d+)/)?.[1] || '0');
+
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (assigned.has(j)) continue;
+      const numB = parseInt((sorted[j].address || '').match(/^(\d+)/)?.[1] || '0');
+      const diff = Math.abs(numA - numB);
+      const sameBlock = Math.floor(numA / 100) === Math.floor(numB / 100);
+      if ((sameBlock && diff <= 50) || (!sameBlock && diff <= 25)) {
+        group.push(sorted[j]);
+        assigned.add(j);
+      }
+    }
+    groups.push(group);
+  }
+  return groups;
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return isNaN(dt) ? d : dt.toLocaleDateString('en-US', {month:'numeric', day:'numeric', year:'2-digit'});
+}
+
+function truncDesc(s, n=80) {
+  if (!s) return '—';
+  return s.length > n ? s.substring(0, n) + '…' : s;
+}
+
+function buildSRTable(seg, rawRecords, qd) {
+  // Get all raw SRs that match this segment by street name
+  const streetUp = seg.street.toUpperCase();
+  const streetCore = streetUp.replace(/^[NSEW]\s+/, '');
+
+  let segSRs = rawRecords.filter(r => {
+    const addr = (r.address || '').toUpperCase();
+    if (!addr.includes(streetUp) && !addr.includes(streetCore)) return false;
+    const num = parseInt(addr.match(/^(\d+)/)?.[1] || '0');
+    return num >= seg.lo && num <= (seg.hi + 99);
+  });
+
+  // Filter to window if active
+  if (qd !== null) {
+    segSRs = segSRs.filter(r => {
+      if (!r.dateCreated) return false;
+      const days = Math.floor((Date.now() - new Date(r.dateCreated)) / 86400000);
+      return days <= qd;
+    });
+  }
+
+  if (!segSRs.length) {
+    return `<div style="padding:8px 0;color:var(--faint);font-size:11px;font-family:monospace;">No service requests found${qd !== null ? ' in this window' : ''}.</div>`;
+  }
+
+  // Group into duplicate clusters
+  const groups = groupDuplicates(segSRs);
+
+  // Separate urgent vs non-urgent groups
+  const URGENT_KW = ['dangerous','accident','injury','school zone','school','hazard','emergency'];
+  const urgentGroups = groups.filter(g => g.some(r => URGENT_KW.some(kw => (r.desc||'').toLowerCase().includes(kw))));
+  const normalGroups = groups.filter(g => !urgentGroups.includes(g));
+
+  const tableHeader = `
+    <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border);color:var(--faint);">
+          <th style="text-align:left;padding:4px 8px;font-weight:600;font-size:9px;letter-spacing:1px;text-transform:uppercase;">Request Date</th>
+          <th style="text-align:left;padding:4px 8px;font-weight:600;font-size:9px;letter-spacing:1px;text-transform:uppercase;">SR #</th>
+          <th style="text-align:left;padding:4px 8px;font-weight:600;font-size:9px;letter-spacing:1px;text-transform:uppercase;">Address</th>
+          <th style="text-align:left;padding:4px 8px;font-weight:600;font-size:9px;letter-spacing:1px;text-transform:uppercase;">Description</th>
+        </tr>
+      </thead>`;
+
+  function renderGroup(group, isUrgent) {
+    const primary = group[0];
+    const dups = group.slice(1);
+    const dupId = `dup_${(primary.id||Math.random()).toString().replace(/[^a-z0-9]/gi,'_')}`;
+    const urgentBadge = isUrgent ? `<span style="background:#7c2d12;color:#fca5a5;font-size:8px;padding:1px 5px;border-radius:2px;margin-left:4px;font-family:monospace;">⚠ URGENT</span>` : '';
+
+    let html = `
+      <tr onclick="toggleDup('${dupId}')" style="cursor:pointer;border-bottom:1px solid var(--border);background:${isUrgent?'#150a0a':'var(--bg3)'};hover:var(--bg2)">
+        <td style="padding:6px 8px;color:var(--muted)">${fmtDate(primary.dateCreated)}</td>
+        <td style="padding:6px 8px;color:var(--gold);font-weight:700">#${primary.id||'—'}${dups.length?`<span style="color:var(--faint);font-weight:400;font-size:9px;margin-left:4px;">+${dups.length} dup${dups.length>1?'s':''}</span>`:''}${urgentBadge}</td>
+        <td style="padding:6px 8px;color:var(--text)">${primary.address||'—'}</td>
+        <td style="padding:6px 8px;color:var(--muted)">${truncDesc(primary.desc)}</td>
+      </tr>`;
+
+    if (dups.length) {
+      html += `<tr id="${dupId}" style="display:none;"><td colspan="4" style="padding:0;border-bottom:1px solid var(--border);">
+        <table style="width:100%;border-collapse:collapse;">`;
+      for (const dup of dups) {
+        html += `<tr style="background:#0d1117;border-bottom:1px solid var(--border);">
+          <td style="padding:4px 8px 4px 32px;color:var(--faint);font-size:10px;width:120px">${fmtDate(dup.dateCreated)}</td>
+          <td style="padding:4px 8px;color:var(--muted);font-size:10px;width:120px">#${dup.id||'—'} <span style="color:var(--faint);font-size:9px">DUPLICATE</span></td>
+          <td style="padding:4px 8px;color:var(--muted);font-size:10px">${dup.address||'—'}</td>
+          <td style="padding:4px 8px;color:var(--faint);font-size:10px">${truncDesc(dup.desc)}</td>
+        </tr>`;
+      }
+      html += `</table></td></tr>`;
+    }
+    return html;
+  }
+
+  let body = '';
+  if (urgentGroups.length) {
+    body += `<tr><td colspan="4" style="padding:6px 8px 3px;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#f87171;font-weight:700;background:#0d0505;">⚠ Urgent Requests</td></tr>`;
+    urgentGroups.forEach(g => body += renderGroup(g, true));
+  }
+  if (normalGroups.length) {
+    body += `<tr><td colspan="4" style="padding:6px 8px 3px;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-weight:700;background:var(--bg3);">Service Requests</td></tr>`;
+    normalGroups.forEach(g => body += renderGroup(g, false));
+  }
+
+  const windowNote = qd !== null 
+    ? `<div style="margin-top:6px;font-size:9px;color:var(--faint);font-family:monospace;">Showing ${segSRs.length} SR${segSRs.length!==1?'s':''} in last ${qd} days · ${groups.length} location group${groups.length!==1?'s':''}</div>`
+    : `<div style="margin-top:6px;font-size:9px;color:var(--faint);font-family:monospace;">All SRs on file: ${segSRs.length} · ${groups.length} location group${groups.length!==1?'s':''}</div>`;
+
+  return tableHeader + `<tbody>${body}</tbody></table>${windowNote}`;
+}
+
+function toggleDup(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+  event.stopPropagation();
 }
 
 loadData();
