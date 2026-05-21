@@ -379,8 +379,9 @@ async function showAdmin() {
   document.getElementById('admin-panel').style.display = 'block';
 
   // Set staff URL
-  const staffUrl = window.location.origin + '/';
-  document.getElementById('staff-url').textContent = staffUrl;
+  const staffUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
+  const staffUrlEl = document.getElementById('staff-url');
+  staffUrlEl.innerHTML = `<a href="${staffUrl}" target="_blank" style="color:var(--gold);text-decoration:none;">${staffUrl}</a>`;
 
   // Load current status from Gist
   try {
