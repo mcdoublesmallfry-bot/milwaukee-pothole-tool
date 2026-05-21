@@ -428,7 +428,7 @@
       </div>
       <button onclick="runSearch()" style="padding:10px 22px;background:var(--gold);color:#000;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:monospace;white-space:nowrap;height:42px;align-self:flex-end;">Search</button>
     </div>
-    <div style="font-size:10px;color:var(--faint);font-family:monospace;">Block range is optional — leave blank to search entire street.</div>
+    <div style="font-size:10px;color:var(--faint);font-family:monospace;">Block range is optional — leave blank to search the entire street.</div>
   </div>
   <div id="res-results"><div class="res-empty">Enter an address or intersection above to look up service requests.</div></div>
   <div id="research-print-view"></div>
@@ -725,8 +725,14 @@ function runSearch() {
   const streetRaw = (document.getElementById('res-street')?.value||'').trim();
   const fromVal = (document.getElementById('res-from')?.value||'').trim();
   const toVal = (document.getElementById('res-to')?.value||'').trim();
-  if (!streetRaw) { document.getElementById('res-results').innerHTML='<div class="res-empty">Please enter a street name.</div>'; return; }
-  if (!rawRecords.length) { document.getElementById('res-results').innerHTML='<div class="res-empty">No SR data loaded yet.</div>'; return; }
+  if (!streetRaw) {
+    document.getElementById('res-results').innerHTML='<div class="res-empty">Please enter a street name to search.</div>';
+    return;
+  }
+  if (!rawRecords.length) {
+    document.getElementById('res-results').innerHTML='<div class="res-empty">No SR data loaded yet. Ask your supervisor to upload the latest export.</div>';
+    return;
+  }
   const streetNorm = normalizeStreet(streetRaw);
   const streetCore = streetNorm.replace(/^[NSEW]\s+/,'');
   const fromBlock = fromVal ? parseInt(fromVal) : null;
@@ -734,7 +740,7 @@ function runSearch() {
   const scored = rawRecords.filter(r => {
     const addr = (r.address||'').toUpperCase();
     if (!addr.includes(streetNorm) && !addr.includes(streetCore)) return false;
-    if (fromBlock!==null||toBlock!==null) {
+    if (fromBlock!==null || toBlock!==null) {
       const nm = addr.match(/^(\d+)/); if (!nm) return false;
       const n = parseInt(nm[1]);
       if (fromBlock!==null && n<fromBlock) return false;
@@ -742,97 +748,6 @@ function runSearch() {
     }
     return true;
   });
-  const query = document.getElementById('res-search').value.trim();
-  if (!query) return;
-  if (!rawRecords.length) {
-    document.getElementById('res-results').innerHTML =
-      '<div class="res-empty">No SR data loaded yet. Ask your supervisor to upload the latest export.</div>';
-    return;
-  }
-
-  const qParts = normalize(query).split(' ').filter(p => p.length > 1);
-  const threshold = Math.max(1, Math.floor(qParts.length * 0.5));
-
-  const scored = rawRecords.map(r => {
-    const addr = normalize(r.address || '');
-    const matches = qParts.filter(p => addr.includes(p)).length;
-    return { ...r, matches };
-  }).filter(r => r.matches >= threshold);
-
-  if (!scored.length) {
-    document.getElementById('res-results').innerHTML =
-      `<div class="res-empty">No service requests found matching "<strong>${query}</strong>".<br>Try a partial address or just the street name.</div>`;
-    return;
-  }
-
-  scored.sort((a, b) => new Date(a.dateCreated) - new Date(b.dateCreated));
-
-  const openRecs = scored.filter(r => !(r.status||'').toLowerCase().includes('closed'));
-  const dates = openRecs.map(r => new Date(r.dateCreated)).filter(d => !isNaN(d)).sort((a,b)=>a-b);
-  const fmtDate = d => d instanceof Date && !isNaN(d)
-    ? d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
-  const dateRange = dates.length >= 2
-    ? fmtDate(dates[0]) + ' – ' + fmtDate(dates[dates.length-1])
-    : dates.length === 1 ? fmtDate(dates[0]) : '—';
-
-  const matchSeg = allSegments.find(seg => { const sn=normalizeStreet(seg.street||''); return sn.includes(streetCore)||sn.includes(streetNorm); });
-  const scoreLabel = matchSeg
-    ? `${matchSeg.score?.toFixed(1)||'—'} — Rank #${allSegments.indexOf(matchSeg)+1} citywide`
-    : 'Not in top priority segments';
-
-  const descs = scored.map(r=>(r.desc||'').trim()).filter(d=>d.length>10);
-  const SWORDS = ['large','deep','dangerous','hazard','damage','sinking','crumbling','sunken','severe','huge','massive','entire','school','accident','injury','emergency'];
-  const kw = {};
-  descs.forEach(d => SWORDS.forEach(w => { if(d.toLowerCase().includes(w)) kw[w]=(kw[w]||0)+1; }));
-  const topWords = Object.entries(kw).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([w,c])=>`"${w}" (${c}×)`);
-  const summaryText = (topWords.length ? `Most common complaint language: ${topWords.join(', ')}. ` : '')
-    + `${openRecs.length} of ${scored.length} requests are still open.`;
-
-  const primary = openRecs[0];
-  const dups = openRecs.slice(1);
-
-  const srHTML = scored.map(r => {
-    const isP = r === primary;
-    const isD = dups.includes(r);
-    const d = r.dateCreated ? fmtDate(new Date(r.dateCreated)) : '—';
-    return `<div class="res-sr-item${isP?' oldest':''}">
-      <div class="res-sr-header">
-        <span class="res-sr-id">#${r.id||'—'}</span>
-        <span class="res-sr-date">${d}</span>
-        <span class="res-sr-addr">${r.address||''}</span>
-        ${isP?'<span class="res-sr-badge">PRIMARY — ASSIGN &amp; CLOSE</span>':''}
-        ${isD?'<span style="font-size:8px;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:monospace">DUPLICATE</span>':''}
-      </div>
-      ${r.desc?`<div class="res-sr-desc">${r.desc.length>180?r.desc.substring(0,180)+'…':r.desc}</div>`:''}
-    </div>`;
-  }).join('');
-
-  // Encode records safely for onclick
-  const encoded = encodeURIComponent(JSON.stringify(scored));
-
-  document.getElementById('res-results').innerHTML = `
-    <div class="res-stats">
-      <div class="res-stat"><div class="res-stat-val">${scored.length}</div><div class="res-stat-lbl">Total SRs Found</div></div>
-      <div class="res-stat"><div class="res-stat-val">${openRecs.length}</div><div class="res-stat-lbl">Open</div></div>
-      <div class="res-stat"><div class="res-stat-val" style="font-size:13px;padding-top:8px">${dateRange}</div><div class="res-stat-lbl">Open SR Date Range</div></div>
-    </div>
-    <div class="res-score-card">
-      <div class="res-score-num">${matchSeg?matchSeg.score?.toFixed(0)||'—':'—'}</div>
-      <div class="res-score-info">
-        <div class="res-score-label">Priority Score</div>
-        <div class="res-score-sub">${scoreLabel}</div>
-      </div>
-    </div>
-    <div class="res-summary">
-      <div class="res-section-title">Description Summary</div>
-      <div class="res-summary-text">${summaryText}</div>
-      ${descs.slice(0,3).map(d=>`<div style="margin-top:8px;padding:8px 12px;background:var(--bg3);border-radius:4px;font-size:11px;color:var(--muted);font-family:monospace;line-height:1.5">"${d.length>200?d.substring(0,200)+'…':d}"</div>`).join('')}
-    </div>
-    <div class="res-section-title" style="margin-bottom:10px">Service Requests (${scored.length}) — Oldest First</div>
-    <div class="res-sr-list">${srHTML}</div>
-    ${openRecs.length>0?`<button class="res-export-btn" onclick="exportResearchPDF(decodeURIComponent('${encoded}'))">&#x2193; Export Closure Work Order PDF</button>`:''}
-  `;
-}
 
 function exportResearchPDF(recordsJson) {
   const records = typeof recordsJson === 'string' ? JSON.parse(recordsJson) : recordsJson;
