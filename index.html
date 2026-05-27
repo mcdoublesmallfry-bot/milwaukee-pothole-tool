@@ -591,10 +591,11 @@ function setSearch(v) { searchVal=v; render(); }
 function setQD(v) {
   if (quietDays === null) return; // window off, ignore
   const n = parseInt(v);
-  if (!isNaN(n) && n >= 1) { quietDays = n; render(); }
+  if (!isNaN(n) && n >= 1) { quietDays = n; recomputeCache(); render(); }
 }
 function toggleWindow() {
   quietDays = quietDays === null ? 14 : null;
+  recomputeCache();
   render();
   // Restore input value when turning on
   const inp = document.getElementById('qd-input');
@@ -805,6 +806,20 @@ function toggleDup(e, id) {
   e.stopPropagation();
   const el = document.getElementById(id);
   if (el) el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
+}
+
+
+function recomputeCache() {
+  if (!allSegments.length || !rawRecords.length) return;
+  window._srTableCache = {};
+  const start = Date.now();
+  allSegments.forEach((seg, idx) => {
+    const cacheKey = seg.street + ':' + seg.lo + '-' + seg.hi;
+    // Pass current quietDays to buildSRTable so it filters for current window
+    window._srTableCache[cacheKey] = buildSRTable(seg, rawRecords, quietDays, false);
+  });
+  const elapsed = Date.now() - start;
+  console.log(`Cache recomputed (${quietDays===null?'all':'last '+quietDays+'d'}): ${elapsed}ms`);
 }
 
 loadData();
