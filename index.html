@@ -611,7 +611,7 @@ async function loadData() {
     // Uses the raw URL (not the API) to avoid auth and rate limits.
     // ?t=Date.now() busts the cache so staff always get the latest upload.
     const GIST_ID = '47bd725efa57d4bc3753b49ee698a3f3';
-    const GIST_USER = 'mcdoublesmallfry';
+    const GIST_USER = 'mcdoublesmallfry-bot';
     const rawUrl = `https://gist.githubusercontent.com/${GIST_USER}/${GIST_ID}/raw/pothole-data.json?t=${Date.now()}`;
     const gistRes = await fetch(rawUrl);
     if (!gistRes.ok) throw new Error(`Could not load data: ${gistRes.status}`);
