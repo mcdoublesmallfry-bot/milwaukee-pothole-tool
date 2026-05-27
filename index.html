@@ -633,11 +633,14 @@ async function loadData() {
     // Pre-compute SR tables for all segments (one-time cost on load)
     window._srTableCache = {};
     const startTime = Date.now();
+    const spinnerEl = document.getElementById('cache-spinner');
+    if (spinnerEl) spinnerEl.classList.add('active');
     allSegments.forEach((seg, idx) => {
       const cacheKey = seg.street + ':' + seg.lo + '-' + seg.hi;
       window._srTableCache[cacheKey] = buildSRTable(seg, rawRecords, null, false);
     });
     const elapsed = Date.now() - startTime;
+    if (spinnerEl) spinnerEl.classList.remove('active');
     console.log(`SR table cache built: ${allSegments.length} tables in ${elapsed}ms`);
 
     // Format updated timestamp
@@ -701,14 +704,14 @@ function truncDesc(s, n=80) {
 }
 
 function buildSRTable(seg, rawRecords, qd, useCache=true) {
-  // Get all raw SRs that match this segment by street name
-  // Check cache first if all-SRs table (qd=null)
-  if (useCache && qd === null) {
+  // Check cache first - cache is keyed by segment, built for current window
+  if (useCache) {
     const cacheKey = seg.street + ':' + seg.lo + '-' + seg.hi;
     if (window._srTableCache && window._srTableCache[cacheKey]) {
       return window._srTableCache[cacheKey];
     }
   }
+  // Fallback: compute if not in cache (shouldn't happen if cache is built)
   const streetUp = seg.street.toUpperCase();
   const streetCore = streetUp.replace(/^[NSEW]\s+/, '');
 
