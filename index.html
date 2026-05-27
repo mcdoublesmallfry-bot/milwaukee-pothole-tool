@@ -628,6 +628,16 @@ async function loadData() {
     rawRecords  = payload.records  || [];
     dataUpdatedAt = payload.updatedAt || '';
     dataMeta = payload.meta || {};
+    
+    // Pre-compute SR tables for all segments (one-time cost on load)
+    window._srTableCache = {};
+    const startTime = Date.now();
+    allSegments.forEach((seg, idx) => {
+      const cacheKey = seg.street + ':' + seg.lo + '-' + seg.hi;
+      window._srTableCache[cacheKey] = buildSRTable(seg, rawRecords, null, false);
+    });
+    const elapsed = Date.now() - startTime;
+    console.log(`SR table cache built: ${allSegments.length} tables in ${elapsed}ms`);
 
     // Format updated timestamp
     if (dataUpdatedAt) {
@@ -689,8 +699,15 @@ function truncDesc(s, n=80) {
   return s.length > n ? s.substring(0, n) + '…' : s;
 }
 
-function buildSRTable(seg, rawRecords, qd) {
+function buildSRTable(seg, rawRecords, qd, useCache=true) {
   // Get all raw SRs that match this segment by street name
+  // Check cache first if all-SRs table (qd=null)
+  if (useCache && qd === null) {
+    const cacheKey = seg.street + ':' + seg.lo + '-' + seg.hi;
+    if (window._srTableCache && window._srTableCache[cacheKey]) {
+      return window._srTableCache[cacheKey];
+    }
+  }
   const streetUp = seg.street.toUpperCase();
   const streetCore = streetUp.replace(/^[NSEW]\s+/, '');
 
