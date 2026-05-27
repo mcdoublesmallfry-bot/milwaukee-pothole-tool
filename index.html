@@ -641,7 +641,10 @@ async function loadData() {
       window._srTableCache[cacheKey] = buildSRTable(seg, rawRecords, null, false);
     });
     const elapsed = Date.now() - startTime;
-    if (spinnerEl) spinnerEl.classList.remove('active');
+    if (spinnerEl) {
+      const minShowTime = Math.max(0, 500 - elapsed);
+      setTimeout(() => spinnerEl.classList.remove('active'), minShowTime);
+    }
     console.log(`SR table cache built: ${allSegments.length} tables in ${elapsed}ms`);
 
     // Format updated timestamp
@@ -815,14 +818,23 @@ function toggleDup(e, id) {
 
 function recomputeCache() {
   if (!allSegments.length || !rawRecords.length) return;
+  // Show spinner
+  const spinner = document.getElementById('cache-spinner');
+  if (spinner) spinner.classList.add('active');
+  
   window._srTableCache = {};
   const start = Date.now();
   allSegments.forEach((seg, idx) => {
     const cacheKey = seg.street + ':' + seg.lo + '-' + seg.hi;
-    // Pass current quietDays to buildSRTable so it filters for current window
     window._srTableCache[cacheKey] = buildSRTable(seg, rawRecords, quietDays, false);
   });
   const elapsed = Date.now() - start;
+  
+  // Keep spinner visible for at least 500ms so user sees it
+  if (spinner) {
+    const minShowTime = Math.max(0, 500 - elapsed);
+    setTimeout(() => spinner.classList.remove('active'), minShowTime);
+  }
   console.log(`Cache recomputed (${quietDays===null?'all':'last '+quietDays+'d'}): ${elapsed}ms`);
 }
 
