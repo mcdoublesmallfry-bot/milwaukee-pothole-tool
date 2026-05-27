@@ -607,19 +607,15 @@ function toggleExpand(key) { expandedKey = expandedKey===key?null:key; render();
 // ── Load data from function ───────────────────────────────────────────────
 async function loadData() {
   try {
-    // Fetch from GitHub Gist directly
+    // Read the PUBLIC gist directly — no token needed for a public read.
+    // Uses the raw URL (not the API) to avoid auth and rate limits.
+    // ?t=Date.now() busts the cache so staff always get the latest upload.
     const GIST_ID = '47bd725efa57d4bc3753b49ee698a3f3';
-    const GITHUB_TOKEN = 'ghp_1DhoKUpuZQHy' + 'qWKuP49LwqaUVm1UlT4P422J';
-    const gistRes = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
-    });
-    if (!gistRes.ok) throw new Error(`GitHub API error: ${gistRes.status}`);
-    const gist = await gistRes.json();
-    const gistFile = gist.files['pothole-data.json'];
-    if (!gistFile) throw new Error('No data uploaded yet.');
-    const rawContent = gistFile.truncated
-      ? await (await fetch(gistFile.raw_url)).text()
-      : gistFile.content;
+    const GIST_USER = 'mcdoublesmallfry';
+    const rawUrl = `https://gist.githubusercontent.com/${GIST_USER}/${GIST_ID}/raw/pothole-data.json?t=${Date.now()}`;
+    const gistRes = await fetch(rawUrl);
+    if (!gistRes.ok) throw new Error(`Could not load data: ${gistRes.status}`);
+    const rawContent = await gistRes.text();
     const payload = JSON.parse(rawContent);
     if (!payload.segments || !payload.segments.length) {
       document.getElementById('loading').style.display = 'none';
